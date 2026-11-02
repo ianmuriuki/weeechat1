@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "weeechat",
-    "slug": "weeechat",
+    "name": "Weeez",
+    "slug": "weeez",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "weeechat",
+    "scheme": "weeez",
     "userInterfaceStyle": "automatic",
     "ios": {
       "icon": "./assets/expo.icon"
@@ -26,7 +26,7 @@
         "android.permission.CAMERA",
         "android.permission.POST_NOTIFICATIONS"
       ],
-      "package": "com.weeechat.app",
+      "package": "com.weeez.app",
       "allowBackup": false
     },
     "web": {
@@ -53,15 +53,15 @@
       [
         "expo-audio",
         {
-          "microphonePermission": "weeechat uses the microphone to record voice notes."
+          "microphonePermission": "Weeez uses the microphone to record voice notes."
         }
       ],
       [
         "expo-image-picker",
         {
-          "photosPermission": "weeechat uses your photos so you can share them in the chat.",
-          "cameraPermission": "weeechat uses the camera to take photos you send.",
-          "microphonePermission": "weeechat uses the microphone to record voice notes."
+          "photosPermission": "Weeez uses your photos so you can share them in the chat.",
+          "cameraPermission": "Weeez uses the camera to take photos you send.",
+          "microphonePermission": "Weeez uses the microphone to record voice notes."
         }
       ],
       "expo-asset",
@@ -97,9 +97,6 @@
         "asyncRoutes": {
           "web": true
         }
-      },
-      "eas": {
-        "projectId": "d6207af5-5859-414e-98ab-583d5adbd943"
       }
     },
     "owner": "muriuki-iann",
