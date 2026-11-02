@@ -97,6 +97,9 @@
         "asyncRoutes": {
           "web": true
         }
+      },
+      "eas": {
+        "projectId": "90c8f662-187d-4647-8695-66ac7ba5b8c7"
       }
     },
     "owner": "muriuki-iann",
