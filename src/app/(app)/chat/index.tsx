@@ -49,18 +49,18 @@ function ChatList({ userId }: { userId: string }) {
     <View style={{ flex: 1, backgroundColor: c.surface, paddingTop: insets.top }}>
       <View style={{ height: 64, paddingHorizontal: space[5], flexDirection: 'row', alignItems: 'center', gap: 10 }}>
         <Logo size={28} stroke={c.primary} fill={c.surface} />
-        <Text style={{ color: c.primary, fontSize: fontSize.title, fontFamily: font.semibold, letterSpacing: -0.4 }}>weeechat</Text>
+        <Text style={{ color: c.primary, fontSize: fontSize.title, fontFamily: font.semibold, letterSpacing: -0.4 }}>Weeez</Text>
       </View>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={'Open chat with ' + (partner?.display_name ?? 'your person')}
+        accessibilityLabel={'Open chat with ' + (partner?.display_name ?? 'your chats')}
         onPress={() => router.push('/chat/room' as never)}
         style={({ pressed }) => ({ minHeight: 76, paddingVertical: 10, paddingHorizontal: space[5], flexDirection: 'row', alignItems: 'center', gap: space[3], backgroundColor: pressed ? c.hover : 'transparent' })}
       >
         <Avatar name={partner?.display_name || '?'} color={c.avatarIann} path={partner?.avatar_path} />
         <View style={{ flex: 1, minWidth: 0, gap: 6 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space[2] }}>
-            <Text numberOfLines={1} style={{ flexShrink: 1, color: c.text, fontSize: 15, fontFamily: font.semibold }}>{partner?.display_name || 'Your person'}</Text>
+            <Text numberOfLines={1} style={{ flexShrink: 1, color: c.text, fontSize: 15, fontFamily: font.semibold }}>{partner?.display_name || 'Chats'}</Text>
             {last && <Text style={{ color: unread > 0 ? c.primary : c.textSecondary, fontSize: fontSize.meta, fontFamily: font.regular }}>{shortWhen(last.created_at)}</Text>}
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space[2] }}>
@@ -80,7 +80,7 @@ function ChatList({ userId }: { userId: string }) {
       </Pressable>
       <View style={{ marginTop: space[8], flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
         <Icon name="lock" size={14} color={c.textSecondary} />
-        <Text style={{ color: c.textSecondary, fontSize: fontSize.caption, fontFamily: font.regular }}>Your private space, for just two.</Text>
+        <Text style={{ color: c.textSecondary, fontSize: fontSize.caption, fontFamily: font.regular }}>Your conversations appear here.</Text>
       </View>
     </View>
   );

@@ -224,11 +224,11 @@ export default function Settings() {
       {profile?.is_admin && (
         <>
           <Text style={label}>Administration</Text>
-          {actionCard('user', 'Account approvals', 'Review people waiting to join Weeez.', () => router.push('/admin'))}
+          {actionCard('user', 'Account approvals', 'Review people waiting to join Weeez.', () => router.push('/(app)/admin' as never))}
         </>
       )}
       <Text style={label}>Connections</Text>
-      {actionCard('plus', 'Invite friends', 'Create and share an invite code.', () => router.push('/invites'))}
+      {actionCard('plus', 'Invite friends', 'Create and share an invite code.', () => router.push('/(app)/invites' as never))}
 
       <Text style={label}>Theme</Text>
       <View accessibilityRole="radiogroup" style={{ flexDirection: 'row', padding: space[1], backgroundColor: c.surfaceSubtle, borderRadius: radius.md }}>
