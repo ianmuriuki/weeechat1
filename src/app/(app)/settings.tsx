@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Constants from 'expo-constants';
 import { useTheme, type ThemePref } from '../../theme/ThemeProvider';
@@ -26,7 +27,8 @@ type Usage = { bytes: number; photos: number; files: number; voice: number };
 export default function Settings() {
   const { c, pref, setPref } = useTheme();
   const insets = useSafeAreaInsets();
-  const { session } = useSession();
+  const { session, profile } = useSession();
+  const router = useRouter();
   const userId = session?.user.id;
 
   const [name, setName] = useState('');
@@ -193,6 +195,18 @@ export default function Settings() {
       </Pressable>
       {!!profileMsg && <Text style={note}>{profileMsg}</Text>}
 
+      {profile?.is_admin && (
+        <>
+          <Text style={label}>Administration</Text>
+          <Pressable accessibilityRole="button" onPress={() => router.push('/admin')} style={{ minHeight: control.md, justifyContent: 'center' }}>
+            <Text style={{ color: c.primary, fontSize: fontSize.body, fontFamily: font.semibold }}>Review account approvals</Text>
+          </Pressable>
+        </>
+      )}
+      <Pressable accessibilityRole="button" onPress={() => router.push('/invites')} style={{ minHeight: control.md, justifyContent: 'center' }}>
+        <Text style={{ color: c.primary, fontSize: fontSize.body, fontFamily: font.semibold }}>Invite friends</Text>
+      </Pressable>
+
       <Text style={label}>Theme</Text>
       <View accessibilityRole="radiogroup" style={{ flexDirection: 'row', padding: space[1], backgroundColor: c.surfaceSubtle, borderRadius: radius.md }}>
         {themes.map((o) => {
@@ -218,7 +232,7 @@ export default function Settings() {
             <Text style={note}>{usage.photos + ' photos, ' + usage.files + ' files, ' + usage.voice + ' voice messages'}</Text>
           </>
         ) : usageError ? (
-          <Text style={{ color: c.textSecondary, fontSize: fontSize.label, fontFamily: font.regular }}>Couldn't load usage.</Text>
+          <Text style={{ color: c.textSecondary, fontSize: fontSize.label, fontFamily: font.regular }}>Could not load usage.</Text>
         ) : (
           <ActivityIndicator color={c.primary} />
         )}
@@ -249,9 +263,9 @@ export default function Settings() {
       </Pressable>
 
       <Text style={label}>About</Text>
-      <Text style={{ color: c.text, fontSize: fontSize.body, fontFamily: font.semibold }}>weeechat</Text>
+      <Text style={{ color: c.text, fontSize: fontSize.body, fontFamily: font.semibold }}>Weeez</Text>
       <Text style={note}>{'Version ' + (Constants.expoConfig?.version ?? '1.0.0')}</Text>
-      <Text style={note}>Only the two of you can open this chat. It is not end to end encrypted, so whoever runs the Supabase project can read it in the database.</Text>
+      <Text style={note}>Only approved members can open this chat. Messages are protected in transit, and the Supabase project administrator can read them in the database.</Text>
     </ScrollView>
     <StatusBarCover />
     </View>

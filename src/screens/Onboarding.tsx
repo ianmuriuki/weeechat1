@@ -14,6 +14,7 @@ import { ProfilePhoto } from '../components/ProfilePhoto';
 import { PasswordField } from '../components/PasswordField';
 import { font } from '../theme/type';
 import { space, fontSize } from '../theme/tokens';
+import { AccountStatus } from '../components/AccountStatus';
 
 function Field({
   label, value, onChangeText, placeholder, secure, email, autoFocus, onSubmit, maxLength,
@@ -89,10 +90,14 @@ export function Onboarding() {
   const { c, isDark } = useTheme();
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  const { session, loading, needsProfile, refreshProfile } = useSession();
+  const { session, profile, loading, needsProfile, refreshProfile } = useSession();
   const [step, setStep] = useState(0);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [displayName, setDisplayName] = useState('');
+  const [username, setUsername] = useState('');
+  const [inviteCode, setInviteCode] = useState('');
+  const [signUpMode, setSignUpMode] = useState(false);
   const [name, setName] = useState('');
   const [status, setStatus] = useState('');
   const [avatar, setAvatar] = useState<string | null>(null);
@@ -106,6 +111,9 @@ export function Onboarding() {
         <ActivityIndicator color={c.primary} />
       </View>
     );
+  }
+  if (session && (profile?.status === 'pending' || profile?.status === 'rejected')) {
+    return <AccountStatus rejected={profile.status === 'rejected'} />;
   }
   if (session && !needsProfile) return <Redirect href="/chat" />;
 
@@ -135,6 +143,47 @@ export function Onboarding() {
     if (error) setMsg(/invalid login/i.test(error.message) ? "That email or password isn't right." : error.message);
   }
 
+  async function signUp() {
+    if (!displayName.trim()) {
+      setMsg('Enter your name.');
+      return;
+    }
+    if (!/^[a-z0-9_]{3,20}$/.test(username.trim().toLowerCase())) {
+      setMsg('Use 3 to 20 lowercase letters, numbers or underscores for your username.');
+      return;
+    }
+    if (password.length < 8) {
+      setMsg('Use at least 8 characters for your password.');
+      return;
+    }
+    setBusy(true);
+    setMsg('');
+    const checked = await supabase.rpc('check_signup', { p_username: username.trim().toLowerCase(), p_code: inviteCode.trim() });
+    if (checked.error) {
+      setBusy(false);
+      setMsg("Couldn't check the invite. Try again.");
+      return;
+    }
+    const signupResult = checked.data as string;
+    const signupMessages: Record<string, string> = {
+      username_invalid: 'Use 3 to 20 lowercase letters, numbers or underscores for your username.',
+      username_taken: 'That username is already taken.',
+      invalid_code: 'Enter a valid invite code.',
+    };
+    if (signupResult !== 'ok') {
+      setBusy(false);
+      setMsg(signupMessages[signupResult] ?? 'That invite cannot be used.');
+      return;
+    }
+    const { error } = await supabase.auth.signUp({
+      email: email.trim(),
+      password,
+      options: { data: { username: username.trim().toLowerCase(), display_name: displayName.trim(), invite_code: inviteCode.trim().toUpperCase() } },
+    });
+    setBusy(false);
+    if (error) setMsg(/already registered/i.test(error.message) ? 'That email is already registered.' : error.message);
+  }
+
   async function saveProfile() {
     const uid = session?.user.id;
     if (!uid) return;
@@ -161,14 +210,14 @@ export function Onboarding() {
       {wide && (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, zIndex: 3 }}>
           <Logo size={28} stroke={c.primary} fill={c.surface} />
-          <Text style={{ color: c.primary, fontSize: fontSize.title, fontFamily: font.semibold, letterSpacing: -0.4 }}>weeechat</Text>
+          <Text style={{ color: c.primary, fontSize: fontSize.title, fontFamily: font.semibold, letterSpacing: -0.4 }}>Weeez</Text>
         </View>
       )}
       <View style={wide ? { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', gap: 20 } : { alignItems: 'center', gap: 14, paddingBottom: 24 }}>
         <View style={[{ width: wide ? 110 : 84, height: wide ? 110 : 84, borderRadius: wide ? 34 : 26, backgroundColor: c.surface, alignItems: 'center', justifyContent: 'center' }, tileShadow]}>
           <Logo size={wide ? 72 : 54} stroke={c.primary} fill={c.surface} />
         </View>
-        <Text style={{ color: lockText, fontSize: wide ? 20 : 17, fontFamily: font.semibold }}>Just the two of you.</Text>
+        <Text style={{ color: lockText, fontSize: wide ? 20 : 17, fontFamily: font.semibold }}>Private chat for friends.</Text>
       </View>
     </View>
   );
@@ -182,12 +231,20 @@ export function Onboarding() {
 
       {shown === 0 && (
         <>
-          <Text style={{ color: c.text, fontSize: h1Size, fontFamily: font.semibold, letterSpacing: -1.8, lineHeight: h1Size * 1.08, marginBottom: 16 }}>weeechat</Text>
-          <Text style={{ color: c.textSecondary, fontSize: fontSize.body, fontFamily: font.regular, lineHeight: 25.6, marginBottom: wide ? 32 : 24 }}>Just the two of you.</Text>
-          <Field label="Email" value={email} onChangeText={setEmail} placeholder="you@example.com" email autoFocus onSubmit={next} />
+          <Text style={{ color: c.text, fontSize: h1Size, fontFamily: font.semibold, letterSpacing: -1.8, lineHeight: h1Size * 1.08, marginBottom: 16 }}>Weeez</Text>
+          <Text style={{ color: c.textSecondary, fontSize: fontSize.body, fontFamily: font.regular, lineHeight: 25.6, marginBottom: wide ? 32 : 24 }}>{signUpMode ? 'Create an account with an invite.' : 'Sign in to your account.'}</Text>
+          {signUpMode && <Field label="Your name" value={displayName} onChangeText={setDisplayName} maxLength={60} autoFocus />}
+          {signUpMode && <Field label="Username" value={username} onChangeText={setUsername} placeholder="lowercase_username" maxLength={20} />}
+          <Field label="Email" value={email} onChangeText={setEmail} placeholder="you@example.com" email autoFocus={!signUpMode} onSubmit={signUpMode ? signUp : next} />
+          {signUpMode && <Field label="Invite code" value={inviteCode} onChangeText={setInviteCode} placeholder="Required after the first account" maxLength={12} />}
           {!!msg && <Text style={{ color: c.danger, fontSize: fontSize.label, fontFamily: font.regular, marginBottom: 12 }}>{msg}</Text>}
-          <PrimaryButton label="Continue" icon="chevron" onPress={next} />
-          <Text style={{ marginTop: 16, color: c.textSecondary, fontSize: 10, fontFamily: font.regular, textAlign: 'center', lineHeight: 15 }}>Private by design. Only the two of you are here.</Text>
+          {signUpMode ? (
+            <>
+              <PasswordField label="Password" value={password} onChangeText={setPassword} onSubmit={signUp} />
+              <PrimaryButton label="Create account" icon="check" onPress={signUp} busy={busy} />
+            </>
+          ) : <PrimaryButton label="Continue" icon="chevron" onPress={next} />}
+          <TextButton label={signUpMode ? 'Already have an account? Sign in' : 'Need an account? Sign up'} center onPress={() => { setSignUpMode((value) => !value); setMsg(''); }} />
         </>
       )}
 
@@ -219,7 +276,7 @@ export function Onboarding() {
             </View>
           </View>
           {!!msg && <Text style={{ color: c.danger, fontSize: fontSize.label, fontFamily: font.regular, marginBottom: 12 }}>{msg}</Text>}
-          <PrimaryButton label="Open weeechat" icon="chevron" onPress={saveProfile} busy={busy} />
+          <PrimaryButton label="Open Weeez" icon="chevron" onPress={saveProfile} busy={busy} />
           <TextButton label="Not you? Sign out" center onPress={() => signOutAndUnregister()} />
         </>
       )}

@@ -2,10 +2,10 @@ import { createContext, useCallback, useContext, useEffect, useState, type React
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 
-type OwnProfile = { display_name: string; avatar_path: string | null };
-type Ctx = { session: Session | null; loading: boolean; needsProfile: boolean; refreshProfile: () => Promise<void> };
+export type OwnProfile = { display_name: string; avatar_path: string | null; status: 'pending' | 'approved' | 'rejected'; is_admin: boolean };
+type Ctx = { session: Session | null; profile: OwnProfile | null; loading: boolean; needsProfile: boolean; refreshProfile: () => Promise<void> };
 
-const SessionContext = createContext<Ctx>({ session: null, loading: true, needsProfile: false, refreshProfile: async () => {} });
+const SessionContext = createContext<Ctx>({ session: null, profile: null, loading: true, needsProfile: false, refreshProfile: async () => {} });
 
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
@@ -19,7 +19,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setSession(data.session);
       setSessionLoading(false);
     });
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
+      setSession(s);
+      if (!s) setProfile(null);
+    });
     return () => sub.subscription.unsubscribe();
   }, []);
 
@@ -28,24 +31,23 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setProfile(null);
       return;
     }
-    const { data } = await supabase.from('profiles').select('display_name, avatar_path').eq('id', uid).maybeSingle();
+    const { data } = await supabase.from('profiles').select('display_name, avatar_path, status, is_admin').eq('id', uid).maybeSingle();
     setProfile((data as OwnProfile | null) ?? null);
   }, [uid]);
 
   useEffect(() => {
-    if (!uid) {
-      setProfile(null);
-      return;
-    }
-    setProfile(undefined);
-    refreshProfile();
+    if (!uid) return;
+    void Promise.resolve().then(() => {
+      setProfile(undefined);
+      return refreshProfile();
+    });
   }, [uid, refreshProfile]);
 
   const loading = sessionLoading || (!!session && profile === undefined);
   // A profile we cannot read never locks you out.
-  const needsProfile = !!session && !!profile && !profile.display_name.trim();
+  const needsProfile = !!session && profile?.status === 'approved' && !profile.display_name.trim();
 
-  return <SessionContext.Provider value={{ session, loading, needsProfile, refreshProfile }}>{children}</SessionContext.Provider>;
+  return <SessionContext.Provider value={{ session, profile: profile ?? null, loading, needsProfile, refreshProfile }}>{children}</SessionContext.Provider>;
 }
 
 export const useSession = () => useContext(SessionContext);
