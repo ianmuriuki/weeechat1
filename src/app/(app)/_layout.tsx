@@ -17,6 +17,8 @@ function AppTabs() {
       <Tabs.Screen name="calls" options={{ title: 'Calls' }} />
       <Tabs.Screen name="media" options={{ title: 'Media' }} />
       <Tabs.Screen name="settings" options={{ title: 'Settings' }} />
+      <Tabs.Screen name="admin" options={{ href: null }} />
+      <Tabs.Screen name="invites" options={{ href: null }} />
     </Tabs>
   );
 }

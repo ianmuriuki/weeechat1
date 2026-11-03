@@ -11,6 +11,7 @@ import { WallpaperSetting } from '../../components/WallpaperSetting';
 import { ProfilePhoto } from '../../components/ProfilePhoto';
 import { StatusBarCover } from '../../components/StatusBarCover';
 import { PasswordField } from '../../components/PasswordField';
+import { Icon } from '../../lib/icons';
 import { formatSize } from '../../components/MessageBubble';
 import { space, radius, fontSize, control } from '../../theme/tokens';
 import { font } from '../../theme/type';
@@ -121,7 +122,7 @@ export default function Settings() {
       return;
     }
     setSaved({ name: name.trim(), status: status.trim() });
-    setProfileMsg('Saved. The other person sees it next time they open the app.');
+    setProfileMsg('Saved. Approved connections will see it next time they open the app.');
   }
 
   async function changePassword() {
@@ -172,6 +173,31 @@ export default function Settings() {
   const note = { color: c.textSecondary, fontSize: fontSize.meta, fontFamily: font.regular, marginTop: space[2] } as const;
   const primaryBtn = (disabled: boolean) => ({ height: control.md, borderRadius: radius.full, backgroundColor: c.primary, alignItems: 'center', justifyContent: 'center', opacity: disabled ? 0.5 : 1, marginTop: space[3] }) as const;
   const used = usage ? Math.min(1, usage.bytes / FREE_BYTES) : 0;
+  const actionCard = (icon: 'user' | 'plus', title: string, description: string, onPress: () => void) => (
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => ({
+        minHeight: 72,
+        paddingHorizontal: space[4],
+        paddingVertical: space[3],
+        borderRadius: radius.lg,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: space[3],
+        backgroundColor: pressed ? c.hover : c.surfaceSubtle,
+      })}
+    >
+      <View style={{ width: 40, height: 40, borderRadius: radius.full, alignItems: 'center', justifyContent: 'center', backgroundColor: c.bubbleOutgoing }}>
+        <Icon name={icon} size={18} color={c.primary} />
+      </View>
+      <View style={{ flex: 1, gap: 3 }}>
+        <Text style={{ color: c.text, fontSize: fontSize.body, fontFamily: font.semibold }}>{title}</Text>
+        <Text style={{ color: c.textSecondary, fontSize: fontSize.meta, fontFamily: font.regular }}>{description}</Text>
+      </View>
+      <Icon name="chevron" size={18} color={c.textSecondary} />
+    </Pressable>
+  );
 
   return (
     <View style={{ flex: 1, backgroundColor: c.surface }}>
@@ -198,14 +224,11 @@ export default function Settings() {
       {profile?.is_admin && (
         <>
           <Text style={label}>Administration</Text>
-          <Pressable accessibilityRole="button" onPress={() => router.push('/admin')} style={{ minHeight: control.md, justifyContent: 'center' }}>
-            <Text style={{ color: c.primary, fontSize: fontSize.body, fontFamily: font.semibold }}>Review account approvals</Text>
-          </Pressable>
+          {actionCard('user', 'Account approvals', 'Review people waiting to join Weeez.', () => router.push('/admin'))}
         </>
       )}
-      <Pressable accessibilityRole="button" onPress={() => router.push('/invites')} style={{ minHeight: control.md, justifyContent: 'center' }}>
-        <Text style={{ color: c.primary, fontSize: fontSize.body, fontFamily: font.semibold }}>Invite friends</Text>
-      </Pressable>
+      <Text style={label}>Connections</Text>
+      {actionCard('plus', 'Invite friends', 'Create and share an invite code.', () => router.push('/invites'))}
 
       <Text style={label}>Theme</Text>
       <View accessibilityRole="radiogroup" style={{ flexDirection: 'row', padding: space[1], backgroundColor: c.surfaceSubtle, borderRadius: radius.md }}>
