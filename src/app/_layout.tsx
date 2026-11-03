@@ -1,4 +1,5 @@
 import { Stack } from 'expo-router';
+import { View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold } from '@expo-google-fonts/inter';
@@ -12,6 +13,17 @@ function ThemedStatusBar() {
   return <StatusBar style={isDark ? 'light' : 'dark'} />;
 }
 
+function AppRoot() {
+  const { c } = useTheme();
+  return (
+    <View style={{ flex: 1, backgroundColor: c.surface }}>
+      <Stack screenOptions={{ headerShown: false }} />
+      <PushBridge />
+      <LaunchSplash />
+    </View>
+  );
+}
+
 export default function RootLayout() {
   const [loaded, error] = useFonts({ Inter_400Regular, Inter_500Medium, Inter_600SemiBold });
   if (!loaded && !error) return null;
@@ -20,9 +32,7 @@ export default function RootLayout() {
       <ThemeProvider>
         <ThemedStatusBar />
         <SessionProvider>
-          <Stack screenOptions={{ headerShown: false }} />
-          <PushBridge />
-          <LaunchSplash />
+          <AppRoot />
         </SessionProvider>
       </ThemeProvider>
     </SafeAreaProvider>
