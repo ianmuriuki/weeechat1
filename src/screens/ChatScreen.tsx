@@ -64,7 +64,7 @@ function lastSeenLabel(iso: string | null) {
   return same ? 'last seen today at ' + timeLabel(iso) : 'last seen ' + dayLabel(iso).toLowerCase() + ' at ' + timeLabel(iso);
 }
 
-export default function ChatScreen({ userId }: { userId: string }) {
+export default function ChatScreen({ userId, conversationId }: { userId: string; conversationId?: string }) {
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -170,7 +170,7 @@ export default function ChatScreen({ userId }: { userId: string }) {
     let cancelled = false;
     (async () => {
       try {
-        const id = await getConversationId();
+        const id = conversationId ?? await getConversationId();
         if (cancelled) return;
         convRef.current = id;
         setConvId(id);
@@ -249,7 +249,7 @@ export default function ChatScreen({ userId }: { userId: string }) {
       channelRef.current = null;
       supabase.from('profiles').update({ last_seen_at: new Date().toISOString() }).eq('id', userId).then(() => {});
     };
-  }, [userId, upsert, syncLatest]);
+  }, [userId, conversationId, upsert, syncLatest]);
 
   // Load the media rows that messages point to.
   useEffect(() => {

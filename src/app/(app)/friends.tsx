@@ -129,22 +129,43 @@ export default function Friends() {
     await load();
   }
 
+  async function openChat(peerId: string) {
+    if (!userId) return;
+    setError('');
+    const mine = await supabase.from('conversation_members').select('conversation_id').eq('user_id', userId);
+    if (mine.error) {
+      setError("Couldn't open that chat. Try again.");
+      return;
+    }
+    const ids = (mine.data ?? []).map((item) => item.conversation_id);
+    if (!ids.length) {
+      setError("Couldn't find that chat. Try again.");
+      return;
+    }
+    const peer = await supabase.from('conversation_members').select('conversation_id').eq('user_id', peerId).in('conversation_id', ids);
+    if (peer.error || !peer.data?.[0]) {
+      setError("Couldn't find that chat. Try again.");
+      return;
+    }
+    router.push(('/chat/room?conversationId=' + peer.data[0].conversation_id) as never);
+  }
+
   const incoming = friendships.filter((row) => row.status === 'pending' && row.addressee_id === userId);
   const outgoing = friendships.filter((row) => row.status === 'pending' && row.requester_id === userId);
   const accepted = friendships.filter((row) => row.status === 'accepted');
-  const row = (friendship: Friendship, action?: React.ReactNode) => {
+  const row = (friendship: Friendship, action?: React.ReactNode, onPress?: () => void) => {
     const otherId = friendship.requester_id === userId ? friendship.addressee_id : friendship.requester_id;
     const person = profiles[otherId];
     if (!person) return null;
     return (
-      <View key={friendship.id} style={{ minHeight: 72, paddingHorizontal: space[5], paddingVertical: space[3], flexDirection: 'row', alignItems: 'center', gap: space[3], borderBottomWidth: 1, borderBottomColor: c.divider }}>
+      <Pressable key={friendship.id} accessibilityRole={onPress ? 'button' : undefined} onPress={onPress} style={({ pressed }) => ({ minHeight: 72, paddingHorizontal: space[5], paddingVertical: space[3], flexDirection: 'row', alignItems: 'center', gap: space[3], borderBottomWidth: 1, borderBottomColor: c.divider, backgroundColor: pressed ? c.hover : 'transparent' })}>
         <Avatar name={person.display_name} color={c.avatarIann} path={person.avatar_path} />
         <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
           <Text numberOfLines={1} style={{ color: c.text, fontSize: fontSize.body, fontFamily: font.semibold }}>{person.display_name}</Text>
           <Text numberOfLines={1} style={{ color: c.textSecondary, fontSize: fontSize.meta, fontFamily: font.regular }}>{'@' + person.username}</Text>
-        </View>
+          </View>
         {action}
-      </View>
+        </Pressable>
     );
   };
   const section = (title: string, children: React.ReactNode) => (
@@ -212,7 +233,10 @@ export default function Friends() {
               </Pressable>
             </View>)))}
             {outgoing.length > 0 && section('Sent requests', outgoing.map((item) => row(item, <Text style={{ color: c.textSecondary, fontSize: fontSize.meta, fontFamily: font.regular }}>Pending</Text>)))}
-            {accepted.length > 0 && section('Your friends', accepted.map((item) => row(item)))}
+            {accepted.length > 0 && section('Your friends', accepted.map((item) => {
+              const peerId = item.requester_id === userId ? item.addressee_id : item.requester_id;
+              return row(item, <Icon name="chevron" size={18} color={c.textSecondary} />, () => openChat(peerId));
+            }))}
             {incoming.length === 0 && outgoing.length === 0 && accepted.length === 0 && (
               <View style={{ alignItems: 'center', paddingHorizontal: space[5], paddingTop: space[10] }}>
                 <Icon name="user" size={32} color={c.textSecondary} />
