@@ -1,7 +1,8 @@
 import { Platform, Pressable, Text, View, useWindowDimensions } from 'react-native';
-import { Slot, usePathname, useRouter } from 'expo-router';
+import { Slot, useFocusEffect, usePathname, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { useTheme } from '../hooks/useTheme';
-import { useUnread } from '../lib/unread';
+import { fetchConversationSummaries, type ConversationSummary } from '../lib/chat';
 import { Icon, type IconName } from '../lib/icons';
 import { Avatar, IconButton } from './Primitives';
 import { Logo } from './Logo';
@@ -33,13 +34,24 @@ export function DesktopShell({ userId }: { userId: string }) {
   const { width } = useWindowDimensions();
   const pathname = usePathname();
   const router = useRouter();
-  const { unread, last, partner } = useUnread();
+  const [conversations, setConversations] = useState<ConversationSummary[]>([]);
+  const [chatError, setChatError] = useState('');
   const go = (path: string) => router.replace(path as never);
   const sidebarWidth = width <= 1120 ? 340 : 400;
   const onChat = pathname.startsWith('/chat') || pathname === '/';
   const onMedia = pathname.startsWith('/media');
 
-  const preview = last ? (last.deleted_at ? 'This message was deleted' : (last.sender_id === userId ? 'You: ' : '') + (last.kind === 'image' ? 'Photo' : last.kind === 'file' ? 'File' : last.kind === 'voice' ? 'Voice message' : last.body ?? '')) : 'No messages yet';
+  useFocusEffect(
+    useCallback(() => {
+      let alive = true;
+      fetchConversationSummaries(userId)
+        .then((rows) => alive && setConversations(rows))
+        .catch(() => alive && setChatError("Couldn't load chats. Try again."));
+      return () => {
+        alive = false;
+      };
+    }, [userId]),
+  );
 
   return (
     <View style={{ flex: 1, flexDirection: 'row', backgroundColor: c.surface }}>
@@ -81,42 +93,38 @@ export function DesktopShell({ userId }: { userId: string }) {
             <View style={{ height: 44, paddingHorizontal: space[6], justifyContent: 'center' }}>
               <Text style={{ color: c.textSecondary, fontSize: fontSize.meta, fontFamily: font.semibold, letterSpacing: 0.7, textTransform: 'uppercase' }}>Messages</Text>
             </View>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={'Open chat with ' + (partner?.display_name ?? 'your person')}
-              onPress={() => go('/chat')}
-              style={({ hovered }: any) => ({
-                minHeight: 76,
-                paddingVertical: 10,
-                paddingLeft: space[5],
-                paddingRight: space[4],
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: space[3],
-                backgroundColor: hovered || pathname.startsWith('/chat') ? c.hover : 'transparent',
-              })}
-            >
-              <View style={{ position: 'absolute', left: 0, top: 12, bottom: 12, width: 3, borderTopRightRadius: 3, borderBottomRightRadius: 3, backgroundColor: c.primary }} />
-              <Avatar name={partner?.display_name || '?'} color={c.avatarIann} path={partner?.avatar_path} />
-              <View style={{ flex: 1, minWidth: 0, gap: 6 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space[2] }}>
-                  <Text numberOfLines={1} style={{ flexShrink: 1, color: c.text, fontSize: 15, fontFamily: font.semibold }}>{partner?.display_name || 'Your person'}</Text>
-                  {last && <Text style={{ color: c.textSecondary, fontSize: fontSize.meta, fontFamily: font.regular }}>{shortWhen(last.created_at)}</Text>}
-                </View>
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space[2] }}>
-                  <Text numberOfLines={1} style={{ flex: 1, color: c.textSecondary, fontSize: fontSize.meta, fontFamily: font.regular }}>{preview}</Text>
-                  {unread > 0 && (
-                    <View style={{ minWidth: 20, height: 20, paddingHorizontal: 5, borderRadius: 10, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center' }}>
-                      <Text style={{ color: c.onAccent, fontSize: fontSize.caption, fontFamily: font.semibold }}>{unread > 99 ? '99+' : unread}</Text>
+            {chatError ? (
+              <Text style={{ paddingHorizontal: space[5], color: c.textSecondary, fontSize: fontSize.label, fontFamily: font.regular }}>{chatError}</Text>
+            ) : conversations.length === 0 ? (
+              <Text style={{ paddingHorizontal: space[5], color: c.textSecondary, fontSize: fontSize.label, fontFamily: font.regular }}>No chats yet.</Text>
+            ) : conversations.map((conversation) => {
+              const name = conversation.kind === 'direct' ? conversation.other?.display_name ?? 'Chat' : conversation.title ?? 'Group chat';
+              const last = conversation.last;
+              const preview = last
+                ? last.deleted_at ? 'This message was deleted' : last.kind === 'image' ? 'Photo' : last.kind === 'file' ? 'File' : last.kind === 'voice' ? 'Voice message' : last.body ?? ''
+                : 'No messages yet';
+              return (
+                <Pressable
+                  key={conversation.id}
+                  accessibilityRole="button"
+                  accessibilityLabel={'Open chat with ' + name}
+                  onPress={() => go('/chat/room?conversationId=' + conversation.id)}
+                  style={({ hovered }: any) => ({ minHeight: 76, paddingVertical: 10, paddingLeft: space[5], paddingRight: space[4], flexDirection: 'row', alignItems: 'center', gap: space[3], backgroundColor: hovered ? c.hover : 'transparent' })}
+                >
+                  <Avatar name={name} color={c.avatarIann} path={conversation.kind === 'direct' ? conversation.other?.avatar_path : conversation.avatar_path} />
+                  <View style={{ flex: 1, minWidth: 0, gap: 6 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space[2] }}>
+                      <Text numberOfLines={1} style={{ flexShrink: 1, color: c.text, fontSize: 15, fontFamily: font.semibold }}>{name}</Text>
+                      {last && <Text style={{ color: conversation.unread > 0 ? c.primary : c.textSecondary, fontSize: fontSize.meta, fontFamily: font.regular }}>{shortWhen(last.created_at)}</Text>}
                     </View>
-                  )}
-                </View>
-              </View>
-            </Pressable>
-            <View style={{ marginTop: space[8], flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
-              <Icon name="lock" size={14} color={c.textSecondary} />
-              <Text style={{ color: c.textSecondary, fontSize: fontSize.caption, fontFamily: font.regular }}>Your private space, for just two.</Text>
-            </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space[2] }}>
+                      <Text numberOfLines={1} style={{ flex: 1, color: c.textSecondary, fontSize: fontSize.meta, fontFamily: font.regular }}>{preview}</Text>
+                      {conversation.unread > 0 && <View style={{ minWidth: 20, height: 20, paddingHorizontal: 5, borderRadius: 10, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: c.onAccent, fontSize: fontSize.caption, fontFamily: font.semibold }}>{conversation.unread > 99 ? '99+' : conversation.unread}</Text></View>}
+                    </View>
+                  </View>
+                </Pressable>
+              );
+            })}
           </View>
         )}
 

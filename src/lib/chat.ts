@@ -45,6 +45,7 @@ export async function fetchMessages(conversationId: string): Promise<Message[]> 
 
 export type Profile = {
   id: string;
+  username?: string;
   display_name: string;
   status_text: string;
   avatar_path: string | null;
@@ -52,9 +53,77 @@ export type Profile = {
 };
 
 export async function fetchProfiles(): Promise<Profile[]> {
-  const { data, error } = await supabase.from('profiles').select('id, display_name, status_text, avatar_path, last_seen_at');
+  const { data, error } = await supabase.from('profiles').select('id, username, display_name, status_text, avatar_path, last_seen_at');
   if (error) throw error;
   return (data ?? []) as Profile[];
+}
+
+export type ConversationSummary = {
+  id: string;
+  kind: 'direct' | 'group';
+  title: string | null;
+  avatar_path: string | null;
+  other: Profile | null;
+  last: Message | null;
+  unread: number;
+};
+
+export async function fetchConversationSummaries(userId: string): Promise<ConversationSummary[]> {
+  const { data: memberships, error: membershipError } = await supabase
+    .from('conversation_members')
+    .select('conversation_id')
+    .eq('user_id', userId);
+  if (membershipError) throw membershipError;
+  const ids = (memberships ?? []).map((row) => row.conversation_id);
+  if (!ids.length) return [];
+
+  const [{ data: conversations, error: conversationError }, { data: members, error: memberError }, { data: messages, error: messageError }] = await Promise.all([
+    supabase.from('conversations').select('id, kind, title, avatar_path, created_at').in('id', ids),
+    supabase.from('conversation_members').select('conversation_id, user_id').in('conversation_id', ids).neq('user_id', userId),
+    supabase.from('messages').select(MESSAGE_COLS).in('conversation_id', ids).order('created_at', { ascending: false }).limit(200),
+  ]);
+  if (conversationError) throw conversationError;
+  if (memberError) throw memberError;
+  if (messageError) throw messageError;
+
+  const otherIds = [...new Set((members ?? []).map((row) => row.user_id))];
+  const { data: profiles, error: profileError } = otherIds.length
+    ? await supabase.from('profiles').select('id, username, display_name, status_text, avatar_path, last_seen_at').in('id', otherIds)
+    : { data: [], error: null };
+  if (profileError) throw profileError;
+
+  const profileById = new Map((profiles ?? []).map((profile) => [profile.id, profile as Profile]));
+  const memberByConversation = new Map<string, string>();
+  for (const member of members ?? []) memberByConversation.set(member.conversation_id, member.user_id);
+  const latestByConversation = new Map<string, Message>();
+  for (const message of (messages ?? []) as Message[]) {
+    if (!latestByConversation.has(message.conversation_id)) latestByConversation.set(message.conversation_id, message);
+  }
+
+  const unreadByConversation = new Map<string, number>();
+  const unreadResult = await supabase
+    .from('messages')
+    .select('conversation_id')
+    .in('conversation_id', ids)
+    .neq('sender_id', userId)
+    .is('read_at', null)
+    .is('deleted_at', null);
+  if (unreadResult.error) throw unreadResult.error;
+  for (const message of unreadResult.data ?? []) {
+    unreadByConversation.set(message.conversation_id, (unreadByConversation.get(message.conversation_id) ?? 0) + 1);
+  }
+
+  return ((conversations ?? []) as Array<{ id: string; kind: 'direct' | 'group'; title: string | null; avatar_path: string | null; created_at: string }>)
+    .map((conversation) => ({
+      id: conversation.id,
+      kind: conversation.kind,
+      title: conversation.title,
+      avatar_path: conversation.avatar_path,
+      other: profileById.get(memberByConversation.get(conversation.id) ?? '') ?? null,
+      last: latestByConversation.get(conversation.id) ?? null,
+      unread: unreadByConversation.get(conversation.id) ?? 0,
+    }))
+    .sort((a, b) => (b.last?.created_at ?? b.id).localeCompare(a.last?.created_at ?? a.id));
 }
 
 export async function markRead(conversationId: string) {
