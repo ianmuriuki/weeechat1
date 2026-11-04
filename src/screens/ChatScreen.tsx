@@ -177,16 +177,33 @@ export default function ChatScreen({ userId, conversationId, initialAction }: { 
 
   useEffect(() => {
     let cancelled = false;
+    setLoading(true);
+    setError('');
+    setConvId(null);
+    convRef.current = null;
+    setMessages([]);
+    setProfiles([]);
     (async () => {
       try {
         const id = conversationId ?? await getConversationId();
         if (cancelled) return;
         convRef.current = id;
         setConvId(id);
-        const [msgs, profs, reacts] = await Promise.all([fetchMessages(id), fetchProfiles(), fetchReactions(id)]);
+        const [msgs, membersResult, reacts] = await Promise.all([
+          fetchMessages(id),
+          supabase.from('conversation_members').select('user_id').eq('conversation_id', id),
+          fetchReactions(id),
+        ]);
+        if (membersResult.error) throw membersResult.error;
+        const memberIds = [...new Set([userId, ...(membersResult.data ?? []).map((member) => member.user_id)])];
+        const { data: profs, error: profilesError } = await supabase
+          .from('profiles')
+          .select('id, username, display_name, status_text, avatar_path, last_seen_at')
+          .in('id', memberIds);
+        if (profilesError) throw profilesError;
         if (cancelled) return;
         setMessages(msgs);
-        setProfiles(profs);
+        setProfiles((profs ?? []) as Profile[]);
         setReactions(reacts);
 
         // An earlier visit can still be closing its connection. Wait for it, or listeners cannot be added.
@@ -710,7 +727,7 @@ export default function ChatScreen({ userId, conversationId, initialAction }: { 
   // Finished calls sit in the timeline between the messages, like WhatsApp.
   const timeline = useMemo(() => {
     const logs: Message[] = call.history
-      .filter((x) => x.status === 'ended' || x.status === 'declined' || x.status === 'missed')
+      .filter((x) => x.conversation_id === convId && (x.status === 'ended' || x.status === 'declined' || x.status === 'missed'))
       .map((x) => {
         const secs = x.answered_at && x.ended_at ? Math.max(0, Math.round((new Date(x.ended_at).getTime() - new Date(x.answered_at).getTime()) / 1000)) : 0;
         return {
@@ -731,7 +748,7 @@ export default function ChatScreen({ userId, conversationId, initialAction }: { 
         };
       });
     return logs.length ? [...messages, ...logs].sort((a, b) => b.created_at.localeCompare(a.created_at)) : messages;
-  }, [messages, call.history]);
+  }, [messages, call.history, convId]);
   const timelineRef = useRef<Message[]>([]);
   timelineRef.current = timeline;
 
