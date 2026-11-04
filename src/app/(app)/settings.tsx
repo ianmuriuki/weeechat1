@@ -182,6 +182,7 @@ export default function Settings() {
         paddingHorizontal: space[4],
         paddingVertical: space[3],
         borderRadius: radius.lg,
+        marginBottom: space[2],
         flexDirection: 'row',
         alignItems: 'center',
         gap: space[3],
