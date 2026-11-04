@@ -1,8 +1,5 @@
-import { Redirect, useLocalSearchParams } from 'expo-router';
-import { SharedMedia } from '../../components/SharedMedia';
+import { Redirect } from 'expo-router';
 
 export default function Media() {
-  const { conversationId } = useLocalSearchParams<{ conversationId?: string }>();
-  if (!conversationId) return <Redirect href="/chat" />;
-  return <SharedMedia variant="page" conversationId={conversationId} />;
+  return <Redirect href="/chat" />;
 }

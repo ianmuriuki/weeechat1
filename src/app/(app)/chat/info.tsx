@@ -97,7 +97,7 @@ export default function ChatInfo() {
       <View style={{ backgroundColor: c.surfaceSubtle }}>{children}</View>
     </View>
   );
-  const row = (icon: 'user' | 'plus' | 'trash' | 'lock' | 'flag', label: string, onPress: () => void, danger = false) => (
+  const row = (icon: 'user' | 'plus' | 'trash' | 'lock' | 'flag' | 'phone' | 'video' | 'search', label: string, onPress: () => void, danger = false) => (
     <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => ({ minHeight: 60, paddingHorizontal: space[5], flexDirection: 'row', alignItems: 'center', gap: space[4], borderBottomWidth: 1, borderBottomColor: c.divider, backgroundColor: pressed ? c.hover : 'transparent' })}>
       <Icon name={icon} size={22} color={danger ? c.danger : c.textSecondary} />
       <Text style={{ color: danger ? c.danger : c.text, fontSize: fontSize.body, fontFamily: font.regular }}>{label}</Text>
@@ -200,7 +200,7 @@ export default function ChatInfo() {
               {person?.username && <Text style={{ color: c.textSecondary, fontSize: fontSize.body, fontFamily: font.regular }}>{'@' + person.username}</Text>}
               {!!person?.status_text && <Text style={{ color: c.textSecondary, fontSize: fontSize.label, fontFamily: font.regular }}>{person.status_text}</Text>}
             </View>
-            <Pressable accessibilityRole="button" onPress={() => router.push(('/media?conversationId=' + conversationId) as never)} style={({ pressed }) => ({ marginHorizontal: space[4], padding: space[4], minHeight: 76, borderRadius: radius.lg, backgroundColor: pressed ? c.hover : c.surfaceSubtle })}>
+            <Pressable accessibilityRole="button" onPress={() => router.push(('/chat/media?conversationId=' + conversationId) as never)} style={({ pressed }) => ({ marginHorizontal: space[4], padding: space[4], minHeight: 76, borderRadius: radius.lg, backgroundColor: pressed ? c.hover : c.surfaceSubtle })}>
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                 <View style={{ gap: 3 }}>
                   <Text style={{ color: c.text, fontSize: fontSize.body, fontFamily: font.semibold }}>Media, links and docs</Text>
@@ -217,6 +217,9 @@ export default function ChatInfo() {
               )}
             </Pressable>
             {conversation.kind === 'direct' && section('Actions', <>
+              {row('phone', 'Audio call', () => router.replace(('/chat/room?conversationId=' + conversationId + '&call=audio') as never))}
+              {row('video', 'Video call', () => router.replace(('/chat/room?conversationId=' + conversationId + '&call=video') as never))}
+              {row('search', 'Search messages', () => router.replace(('/chat/room?conversationId=' + conversationId + '&search=1') as never))}
               {row('plus', 'Add to group', () => void openGroupActions())}
               {row('trash', 'Clear chat', () => { setActionError(''); setAction('clear'); })}
             </>)}

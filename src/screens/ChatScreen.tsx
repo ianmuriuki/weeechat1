@@ -64,7 +64,7 @@ function lastSeenLabel(iso: string | null) {
   return same ? 'last seen today at ' + timeLabel(iso) : 'last seen ' + dayLabel(iso).toLowerCase() + ' at ' + timeLabel(iso);
 }
 
-export default function ChatScreen({ userId, conversationId }: { userId: string; conversationId?: string }) {
+export default function ChatScreen({ userId, conversationId, initialAction }: { userId: string; conversationId?: string; initialAction?: 'audio' | 'video' | 'search' }) {
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -118,6 +118,15 @@ export default function ChatScreen({ userId, conversationId }: { userId: string;
   const [focused, setFocused] = useState(false);
   const messagesRef = useRef<Message[]>([]);
   messagesRef.current = messages;
+
+  const initialActionRef = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (!convId || !initialAction || initialActionRef.current === initialAction) return;
+    initialActionRef.current = initialAction;
+    if (initialAction === 'search') setSearchOpen(true);
+    else if (call.supported) void call.start(initialAction);
+    else setError('Calls are not available in this app. Use the web app, or a development build.');
+  }, [call, convId, initialAction]);
 
   useEffect(() => {
     Animated.timing(fabAnim, { toValue: away ? 1 : 0, duration: motion.fast, useNativeDriver: Platform.OS !== 'web' }).start();

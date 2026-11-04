@@ -8,6 +8,7 @@ import { Icon, type IconName } from '../lib/icons';
 import { getSignedUrl, useSignedUrl, type MediaRow } from '../lib/media';
 import { fetchShared, type SharedData, type SharedItem, type SharedLink } from '../lib/shared';
 import { MediaViewer } from './MediaViewer';
+import { IconButton } from './Primitives';
 import { formatSize } from './MessageBubble';
 import { space, radius, fontSize, control } from '../theme/tokens';
 import { font } from '../theme/type';
@@ -206,7 +207,7 @@ function LinkRow({ link, onPress }: { link: SharedLink; onPress: () => void }) {
   );
 }
 
-export function SharedMedia({ variant, conversationId }: { variant: 'page' | 'pane'; conversationId: string }) {
+export function AllMedia({ variant, conversationId }: { variant: 'page' | 'pane'; conversationId: string }) {
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -298,7 +299,7 @@ export function SharedMedia({ variant, conversationId }: { variant: 'page' | 'pa
   const goChat = () => router.replace(('/chat/room?conversationId=' + conversationId) as never);
   const refresh = <RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={c.primary} colors={[c.primary]} />;
   const header = <StorageCard bytes={data?.bytes ?? 0} />;
-  const listPad = { paddingBottom: space[4] + (variant === 'page' ? 100 + insets.bottom : 0) };
+  const listPad = { paddingBottom: space[4] + (variant === 'page' ? insets.bottom : 0) };
 
   let body: ReactNode = null;
   if (!data) {
@@ -362,8 +363,9 @@ export function SharedMedia({ variant, conversationId }: { variant: 'page' | 'pa
   return (
     <View style={{ flex: 1, backgroundColor: c.surface }}>
       {variant === 'page' && (
-        <View style={{ paddingTop: insets.top + space[4], paddingHorizontal: space[5], paddingBottom: space[3] }}>
-          <Text accessibilityRole="header" style={{ color: c.text, fontSize: fontSize.pageTitle, fontFamily: font.semibold, letterSpacing: -0.5 }}>Shared media</Text>
+        <View style={{ paddingTop: insets.top, minHeight: 64, paddingHorizontal: space[3], flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: c.divider }}>
+          <IconButton icon="arrowLeft" label="Back to chat info" onPress={() => router.back()} />
+          <Text accessibilityRole="header" style={{ color: c.text, fontSize: fontSize.title, fontFamily: font.semibold, letterSpacing: -0.5 }}>All media</Text>
         </View>
       )}
       <Segment tab={tab} onTab={setTab} />
