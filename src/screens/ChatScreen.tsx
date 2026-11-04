@@ -311,8 +311,8 @@ export default function ChatScreen({ userId, conversationId, initialAction }: { 
 
   // A message notification leaves the tray as soon as the chat is open, including ones that arrive while it is open.
   useEffect(() => {
-    if (focused) clearNotifications(['message']);
-  }, [focused, messages]);
+    if (focused && convId) clearNotifications(['message'], convId);
+  }, [focused, convId, messages]);
 
   function sendTyping(typing: boolean) {
     inboxTyping(typing);
@@ -840,7 +840,7 @@ export default function ChatScreen({ userId, conversationId, initialAction }: { 
             >
               <Icon name="lock" size={13} color={c.warningText} />
               <Text style={{ color: c.warningText, fontSize: 10, fontFamily: font.regular }}>
-                {'Private for ' + (me?.display_name || 'you') + ' and ' + (partner?.display_name || 'them') + '.'}
+                Messages are protected in transit.
               </Text>
             </View>
           </View>

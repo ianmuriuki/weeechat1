@@ -42,7 +42,7 @@ export async function ensureChannels() {
 }
 
 // Clears message and shared activity notifications from the tray. The running workout notification stays.
-export async function clearNotifications(only?: string[]) {
+export async function clearNotifications(only?: string[], conversationId?: string) {
   if (!canPush()) return;
   try {
     const N = await loadNotifications();
@@ -50,8 +50,11 @@ export async function clearNotifications(only?: string[]) {
     await Promise.all(
       shown
         .filter((n) => {
-          const t = (n.request.content.data as { type?: string } | undefined)?.type;
-          return n.request.identifier !== 'workout-running' && t !== 'workout-running' && (!only || (!!t && only.includes(t)));
+          const data = n.request.content.data as { type?: string; conversationId?: string } | undefined;
+          return n.request.identifier !== 'workout-running'
+            && data?.type !== 'workout-running'
+            && (!only || (!!data?.type && only.includes(data.type)))
+            && (!conversationId || data?.conversationId === conversationId);
         })
         .map((n) => N.dismissNotificationAsync(n.request.identifier)),
     );
@@ -74,7 +77,7 @@ async function initHandler() {
   handlerSet = true;
 }
 
-const TOKEN_KEY = 'weeechat.pushToken';
+const TOKEN_KEY = 'weeez.pushToken';
 let registeredToken: string | null = null;
 
 export async function registerForPush(): Promise<string | null> {

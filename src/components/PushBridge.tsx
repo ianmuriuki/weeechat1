@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
-import { usePathname, useRouter } from 'expo-router';
+import { useGlobalSearchParams, usePathname, useRouter } from 'expo-router';
 import type { NotificationResponse } from 'expo-notifications';
 import { useSession } from '../lib/session';
 import { canPush, clearNotifications, loadNotifications, registerForPush } from '../lib/push';
@@ -11,6 +11,7 @@ export function PushBridge() {
   const { session, loading } = useSession();
   const router = useRouter();
   const pathname = usePathname();
+  const params = useGlobalSearchParams<{ conversationId?: string }>();
   const pathRef = useRef(pathname);
   pathRef.current = pathname;
   const handled = useRef<string | null>(null);
@@ -43,7 +44,7 @@ export function PushBridge() {
         const id = resp.notification.request.identifier;
         if (handled.current === id) return;
         handled.current = id;
-        const data = resp.notification.request.content.data as { type?: string; callId?: string } | undefined;
+        const data = resp.notification.request.content.data as { type?: string; callId?: string; conversationId?: string } | undefined;
         if (data?.type === 'call') {
           if (act === 'accept' || act === 'decline') {
             requestCallAction(act, data.callId ?? null);
@@ -56,8 +57,10 @@ export function PushBridge() {
           if (pathRef.current !== '/weee') router.push('/weee' as never);
           return;
         }
-        if (data?.type !== 'message') return;
-        if (pathRef.current !== '/chat/room') router.push('/chat/room' as never);
+        if (data?.type !== 'message' || !data.conversationId) return;
+        if (pathRef.current !== '/chat/room' || params.conversationId !== data.conversationId) {
+          router.push(('/chat/room?conversationId=' + data.conversationId) as never);
+        }
       };
       const last = typeof N.getLastNotificationResponse === 'function' ? N.getLastNotificationResponse() : null;
       if (last) {
@@ -70,7 +73,7 @@ export function PushBridge() {
       alive = false;
       sub?.remove();
     };
-  }, [loading, uid, router]);
+  }, [loading, uid, params.conversationId, router]);
 
   return null;
 }
