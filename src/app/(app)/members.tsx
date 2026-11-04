@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { Redirect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '../../components/Primitives';
@@ -33,6 +33,7 @@ export default function Members() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [confirmId, setConfirmId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -55,15 +56,9 @@ export default function Members() {
   }
   if (!session || !profile?.is_admin) return <Redirect href="/settings" />;
 
-  function confirmDisable(member: Member) {
-    Alert.alert('Disable account', 'This signs the account out on every device and prevents access until it is approved again.', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Disable', style: 'destructive', onPress: () => void disable(member) },
-    ]);
-  }
-
   async function disable(member: Member) {
     setBusyId(member.id);
+    setConfirmId(null);
     setError('');
     const { error: disableError } = await supabase.rpc('disable_account', { p_user: member.id });
     setBusyId(null);
@@ -103,9 +98,23 @@ export default function Members() {
                     <Text numberOfLines={1} style={{ color: c.textSecondary, fontSize: fontSize.meta, fontFamily: font.regular }}>{lastSeen(member.last_seen_at)}</Text>
                   </View>
                   {!isSelf && member.status !== 'rejected' && (
-                    <Pressable accessibilityRole="button" disabled={busyId === member.id} onPress={() => confirmDisable(member)} style={{ minHeight: control.sm, paddingHorizontal: space[3], justifyContent: 'center', opacity: busyId === member.id ? 0.5 : 1 }}>
-                      <Text style={{ color: c.danger, fontSize: fontSize.label, fontFamily: font.semibold }}>Disable</Text>
-                    </Pressable>
+                    confirmId === member.id ? (
+                      <View style={{ alignItems: 'flex-end', gap: space[2] }}>
+                        <Text style={{ maxWidth: 180, color: c.textSecondary, fontSize: fontSize.meta, fontFamily: font.regular }}>This signs the account out on every device.</Text>
+                        <View style={{ flexDirection: 'row', gap: space[3] }}>
+                          <Pressable accessibilityRole="button" onPress={() => setConfirmId(null)} style={{ minHeight: control.sm, justifyContent: 'center' }}>
+                            <Text style={{ color: c.textSecondary, fontSize: fontSize.label, fontFamily: font.semibold }}>Cancel</Text>
+                          </Pressable>
+                          <Pressable accessibilityRole="button" disabled={busyId === member.id} onPress={() => void disable(member)} style={{ minHeight: control.sm, justifyContent: 'center', opacity: busyId === member.id ? 0.5 : 1 }}>
+                            <Text style={{ color: c.danger, fontSize: fontSize.label, fontFamily: font.semibold }}>Disable</Text>
+                          </Pressable>
+                        </View>
+                      </View>
+                    ) : (
+                      <Pressable accessibilityRole="button" onPress={() => setConfirmId(member.id)} style={{ minHeight: control.sm, paddingHorizontal: space[3], justifyContent: 'center' }}>
+                        <Text style={{ color: c.danger, fontSize: fontSize.label, fontFamily: font.semibold }}>Disable</Text>
+                      </Pressable>
+                    )
                   )}
                 </View>
               );
