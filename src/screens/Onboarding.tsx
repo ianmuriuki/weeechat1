@@ -206,7 +206,7 @@ export function Onboarding() {
   const tileShadow: any = Platform.OS === 'web' ? { boxShadow: '0 8px 24px rgba(17,27,33,0.16)' } : { elevation: 4 };
   const art = (
     <View style={{ flex: wide ? 1.1 : undefined, height: wide ? undefined : 250 + insets.top, paddingTop: wide ? space[10] : insets.top, paddingHorizontal: wide ? space[10] : 24, backgroundColor: artBg, overflow: 'hidden', alignItems: wide ? undefined : 'center', justifyContent: wide ? undefined : 'center' }}>
-      <DoodleLayer color={c.primary} opacity={isDark ? 0.24 : 0.22} id="weeechat-art" />
+      <DoodleLayer color={c.primary} opacity={isDark ? 0.24 : 0.22} id="weeez-art" />
       {wide && (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, zIndex: 3 }}>
           <Logo size={28} stroke={c.primary} fill={c.surface} />

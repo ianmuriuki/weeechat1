@@ -110,7 +110,7 @@ export function WeeePage() {
   const { partner, partnerOnline } = useUnread();
   const wide = width > 820;
   const uid = session?.user.id ?? '';
-  const partnerName = partner?.display_name?.trim() || 'your person';
+  const partnerName = partner?.display_name?.trim() || 'Friend';
   const colors = personColors(uid, partner?.id, w);
   const tone = (name: keyof Weee) => {
     const fg = onBlock(name, isDark);
@@ -488,7 +488,7 @@ export function WeeePage() {
             </Animated.View>
           ))}
         </View>
-        <Text style={{ color: BLOCK_INK, fontSize: 16, fontFamily: font.semibold, marginBottom: 10 }}>Thought of you</Text>
+        <Text style={{ color: BLOCK_INK, fontSize: 16, fontFamily: font.semibold, marginBottom: 10 }}>Send a nudge</Text>
         <Pressable accessibilityRole="button" accessibilityState={{ disabled: sent }} disabled={sent} onPress={sendNudge} style={({ pressed }) => ({ height: 48, borderRadius: 24, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: sent ? 'rgba(20,24,27,0.2)' : BLOCK_INK, transform: [{ scale: pressed ? 0.97 : 1 }] })}>
           <Icon name={sent ? 'check' : 'heart'} size={18} color={sent ? BLOCK_INK : '#ffffff'} />
           <Text style={{ color: sent ? BLOCK_INK : '#ffffff', fontSize: 14, fontFamily: font.semibold }}>{sent ? 'Sent' : 'Send'}</Text>

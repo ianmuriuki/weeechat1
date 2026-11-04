@@ -4,7 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors, type Colors } from './tokens';
 
 export type ThemePref = 'system' | 'light' | 'dark';
-const KEY = 'weeechat:theme';
+const KEY = 'weeez:theme';
 
 type Ctx = { c: Colors; isDark: boolean; pref: ThemePref; setPref: (p: ThemePref) => void; toggle: () => void };
 const ThemeContext = createContext<Ctx | null>(null);

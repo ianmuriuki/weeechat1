@@ -56,7 +56,7 @@ export function DesktopShell({ userId }: { userId: string }) {
         <View style={{ height: 76, paddingLeft: space[6], paddingRight: space[5], flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
             <Logo size={28} stroke={c.primary} fill={c.surface} />
-            <Text style={{ color: c.primary, fontSize: fontSize.title, fontFamily: font.semibold, letterSpacing: -0.4 }}>weeechat</Text>
+            <Text style={{ color: c.primary, fontSize: fontSize.title, fontFamily: font.semibold, letterSpacing: -0.4 }}>Weeez</Text>
           </View>
           <View style={{ flexDirection: 'row' }}>
             <IconButton icon={isDark ? 'sun' : 'moon'} label={isDark ? 'Use light theme' : 'Use dark theme'} onPress={toggle} />

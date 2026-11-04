@@ -6,7 +6,7 @@ import { Icon } from '../lib/icons';
 import { space, fontSize } from '../theme/tokens';
 import { font } from '../theme/type';
 
-const KEY = 'weeechat:recent-emoji';
+const KEY = 'weeez:recent-emoji';
 const list = (s: string) => s.split(' ');
 
 const CATS: { icon: string; items: string[] }[] = [

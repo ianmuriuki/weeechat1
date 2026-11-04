@@ -129,7 +129,7 @@ export function ChatWallpaper() {
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
       <Svg width="100%" height="100%">
         <Defs>
-          <Pattern id="weeechat-doodles" patternUnits="userSpaceOnUse" width={TILE} height={TILE}>
+          <Pattern id="weeez-doodles" patternUnits="userSpaceOnUse" width={TILE} height={TILE}>
             <G stroke={col.text} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" fill="none" opacity={isDark ? OPACITY_DARK : OPACITY_LIGHT}>
               {PLACED.map((d) => (
                 <G key={d.key} transform={d.transform}>
@@ -143,7 +143,7 @@ export function ChatWallpaper() {
             </G>
           </Pattern>
         </Defs>
-        <Rect x="0" y="0" width="100%" height="100%" fill="url(#weeechat-doodles)" />
+        <Rect x="0" y="0" width="100%" height="100%" fill="url(#weeez-doodles)" />
       </Svg>
     </View>
   );

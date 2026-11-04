@@ -54,10 +54,10 @@ render "$TMP/splash.svg" "$OUT/splash-icon.png"
   printf '</g></g>\n'
   printf '<circle cx="12" cy="12" r="7.33" fill="none" stroke="#ff0000" stroke-width="0.08" stroke-dasharray="0.4 0.4"/>\n</svg>\n'
 } > "$TMP/preview.svg"
-rsvg-convert -f png -o /tmp/weeechat-icon-preview.png "$TMP/preview.svg"
+rsvg-convert -f png -o /tmp/weeez-icon-preview.png "$TMP/preview.svg"
 
 file "$OUT"/icon.png "$OUT"/android-icon-*.png "$OUT"/splash-icon.png
-echo "Done. Preview: /tmp/weeechat-icon-preview.png"
+echo "Done. Preview: /tmp/weeez-icon-preview.png"
 
 # Notification small icon: all white mark on transparent, 96 px.
 sed -E 's/#[0-9A-Fa-f]{6}/#FFFFFF/g' "$TMP/inner.svg" > "$TMP/inner-white.svg"

@@ -75,7 +75,7 @@ export function LaunchSplash() {
         </Svg>
       )}
       <Animated.View style={{ opacity: word }}>
-        <Text style={{ color: c.primary, fontSize: 20, fontFamily: font.semibold, letterSpacing: -0.4 }}>weeechat</Text>
+        <Text style={{ color: c.primary, fontSize: 20, fontFamily: font.semibold, letterSpacing: -0.4 }}>Weeez</Text>
       </Animated.View>
     </Animated.View>
   );

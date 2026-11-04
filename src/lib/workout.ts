@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { canPush, ensureChannels, loadNotifications } from './push';
 
-const KEY = 'weeechat.workout';
+const KEY = 'weeez.workout';
 const DAY = 24 * 60 * 60 * 1000;
 
 // endsAt is set while the timer runs. leftMs is the time remaining while it is paused.

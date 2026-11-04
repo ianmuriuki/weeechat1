@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export type WallpaperPref = 'doodles' | 'plain';
 
-const KEY = 'weeechat:wallpaper';
+const KEY = 'weeez:wallpaper';
 let current: WallpaperPref = 'doodles';
 let loaded = false;
 const listeners = new Set<() => void>();
