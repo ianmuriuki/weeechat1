@@ -6,9 +6,7 @@ import { Avatar } from './Primitives';
 import { Icon, type IconName } from '../lib/icons';
 import { useCall } from '../lib/call';
 import { loadLivekit } from '../lib/livekit';
-import { useUnread } from '../lib/unread';
-import { useSession } from '../lib/session';
-import { personColors, useWeee } from '../theme/weee';
+import { useWeee } from '../theme/weee';
 import { font } from '../theme/type';
 
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -80,8 +78,6 @@ function WebVideo({ track, mirror }: { track: RemoteVideoTrack | LocalVideoTrack
 // Full screen call view. Incoming, calling, ringing, connecting and live. A minimised call leaves a green bar.
 export function CallUI() {
   const c = useCall();
-  const { partner } = useUnread();
-  const { session } = useSession();
   const { w } = useWeee();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
@@ -100,8 +96,8 @@ export function CallUI() {
 
   if (c.phase === 'idle') return null;
 
-  const name = partner?.display_name?.trim() || 'Your person';
-  const colors = personColors(session?.user.id ?? '', partner?.id, w);
+  const peer = c.call?.peer;
+  const name = peer?.display_name?.trim() || 'Contact';
   const isVideo = c.call?.kind === 'video';
   const secs = c.connectedAt ? Math.max(0, Math.floor((now - c.connectedAt) / 1000)) : 0;
   const clock = pad(Math.floor(secs / 60)) + ':' + pad(secs % 60);
@@ -169,7 +165,7 @@ export function CallUI() {
           )}
 
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 }}>
-            {!showVideo && <Avatar name={partner?.display_name || '?'} diameter={size} color={colors.partner} path={partner?.avatar_path} />}
+            {!showVideo && <Avatar name={peer?.display_name || '?'} diameter={size} color={w.moss} path={peer?.avatar_path} />}
             {c.phase === 'incoming' && !c.supported && (
               <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14, fontFamily: font.regular, textAlign: 'center', maxWidth: 300, marginTop: 20 }}>
                 This app cannot take calls here. Open the web app in your browser, or use the newest build.

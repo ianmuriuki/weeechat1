@@ -124,7 +124,7 @@ export default function ChatScreen({ userId, conversationId, initialAction }: { 
     if (!convId || !initialAction || initialActionRef.current === initialAction) return;
     initialActionRef.current = initialAction;
     if (initialAction === 'search') setSearchOpen(true);
-    else if (call.supported) void call.start(initialAction);
+    else if (call.supported && convId) void call.start(initialAction, convId);
     else setError('Calls are not available in this app. Use the web app, or a development build.');
   }, [call, convId, initialAction]);
 
@@ -786,13 +786,13 @@ export default function ChatScreen({ userId, conversationId, initialAction }: { 
           icon="video"
           label="Start video call"
           disabled={call.phase !== 'idle'}
-          onPress={() => (call.supported ? call.start('video') : setError('Calls are not available in this app. Use the web app, or a development build.'))}
+          onPress={() => (call.supported && convId ? call.start('video', convId) : setError('Calls are not available in this app. Use the web app, or a development build.'))}
         />
         <IconButton
           icon="phone"
           label="Start voice call"
           disabled={call.phase !== 'idle'}
-          onPress={() => (call.supported ? call.start('audio') : setError('Calls are not available in this app. Use the web app, or a development build.'))}
+          onPress={() => (call.supported && convId ? call.start('audio', convId) : setError('Calls are not available in this app. Use the web app, or a development build.'))}
         />
       </View>
 

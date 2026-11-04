@@ -3,8 +3,7 @@ import { AppState, Platform } from 'react-native';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import type { LocalVideoTrack, RemoteVideoTrack, Room } from 'livekit-client';
 import { supabase } from './supabase';
-import { getConversationId } from './chat';
-import { answerCall, endCall, fetchCallToken, startCall, type CallKind, type CallRow } from './calls';
+import { answerCall, endCall, fetchCallToken, startCall, type CallKind, type CallPeer, type CallRow } from './calls';
 import { canCall, loadLivekit, setSpeakerOutput } from './livekit';
 import { startRing, stopRing } from './ringtone';
 import { onCallAction, takeCallAction } from './callAction';
@@ -24,7 +23,7 @@ type Ctx = {
   ringing: boolean;
   notice: string;
   history: CallRow[];
-  start: (kind: CallKind) => Promise<void>;
+  start: (kind: CallKind, conversationId?: string) => Promise<void>;
   accept: () => Promise<void>;
   decline: () => Promise<void>;
   hangup: () => Promise<void>;
@@ -34,7 +33,7 @@ type Ctx = {
   clearNotice: () => void;
 };
 
-const noop = async () => {};
+const noop = async (_kind?: CallKind, _conversationId?: string) => {};
 const CallContext = createContext<Ctx>({
   supported: false, phase: 'idle', call: null, muted: false, camOn: false, speaker: false, remoteVideo: null, localVideo: null,
   connectedAt: null, ringing: false, notice: '', history: [], start: noop, accept: noop, decline: noop, hangup: noop,
@@ -68,6 +67,7 @@ export function CallProvider({ userId, children }: { userId: string; children: R
   const [ringing, setRinging] = useState(false);
 
   const cid = useRef<string | null>(null);
+  const conversationIds = useRef(new Set<string>());
   const roomRef = useRef<Room | null>(null);
   const callRef = useRef<CallRow | null>(null);
   const phaseRef = useRef<Phase>('idle');
@@ -85,11 +85,32 @@ export function CallProvider({ userId, children }: { userId: string; children: R
     setCall(c);
   }, []);
 
+  const loadPeer = useCallback(async (conversationId: string): Promise<CallPeer | undefined> => {
+    const { data: member } = await supabase
+      .from('conversation_members')
+      .select('user_id')
+      .eq('conversation_id', conversationId)
+      .neq('user_id', userId)
+      .maybeSingle();
+    if (!member) return undefined;
+    const { data: profile } = await supabase.from('profiles').select('id, display_name, avatar_path').eq('id', member.user_id).maybeSingle();
+    return profile as CallPeer | undefined;
+  }, [userId]);
+
   const loadHistory = useCallback(async () => {
-    if (!cid.current) return;
-    const { data, error } = await supabase.from('calls').select(COLS).eq('conversation_id', cid.current).order('created_at', { ascending: false }).limit(30);
-    if (!error) setHistory((data ?? []) as CallRow[]);
-  }, []);
+    const ids = Array.from(conversationIds.current);
+    if (!ids.length) return;
+    const { data, error } = await supabase.from('calls').select(COLS).in('conversation_id', ids).order('created_at', { ascending: false }).limit(100);
+    if (error) return;
+    const rows = (data ?? []) as CallRow[];
+    const { data: members } = await supabase.from('conversation_members').select('conversation_id, user_id').in('conversation_id', ids);
+    const peerIds = new Set((members ?? []).filter((m) => m.user_id !== userId).map((m) => m.user_id));
+    const { data: profiles } = peerIds.size
+      ? await supabase.from('profiles').select('id, display_name, avatar_path').in('id', Array.from(peerIds))
+      : { data: [] };
+    const peers = new Map((profiles ?? []).map((p) => [p.id, p as CallPeer]));
+    setHistory(rows.map((row) => ({ ...row, peer: peers.get((members ?? []).find((m) => m.conversation_id === row.conversation_id && m.user_id !== userId)?.user_id ?? '') })));
+  }, [userId]);
 
   const cleanup = useCallback(async () => {
     clearTimeout(timer.current);
@@ -201,6 +222,9 @@ export function CallProvider({ userId, children }: { userId: string; children: R
   const ring = useCallback(
     (c: CallRow) => {
       if (phaseRef.current !== 'idle') return;
+      void loadPeer(c.conversation_id).then((peer) => {
+        if (callRef.current?.id === c.id) put({ ...c, peer });
+      });
       put(c);
       go('incoming');
       supabase.rpc('ack_ringing', { p_call: c.id }).then(() => {}, () => {});
@@ -209,24 +233,26 @@ export function CallProvider({ userId, children }: { userId: string; children: R
         if (phaseRef.current === 'incoming') api.current.cleanup();
       }, RING_MS);
     },
-    [go, put],
+    [go, loadPeer, put],
   );
 
   api.current = { hangup, cleanup, loadHistory, connect, ring };
 
   const start = useCallback(
-    async (kind: CallKind) => {
-      if (phaseRef.current !== 'idle' || !cid.current) return;
+    async (kind: CallKind, conversationId?: string) => {
+      const target = conversationId;
+      if (phaseRef.current !== 'idle' || !target) return;
       if (!canCall()) {
         setNotice('Calls need the latest build of the app.');
         return;
       }
       setNotice('');
       try {
-        const id = await startCall(cid.current, kind);
+        cid.current = target;
+        const id = await startCall(target, kind);
         const { data, error } = await supabase.from('calls').select(COLS).eq('id', id).single();
         if (error || !data) throw new Error('call not found');
-        put(data as CallRow);
+        put({ ...(data as CallRow), peer: await loadPeer(target) });
         go('outgoing');
         timer.current = setTimeout(() => {
           if (phaseRef.current !== 'outgoing') return;
@@ -238,7 +264,7 @@ export function CallProvider({ userId, children }: { userId: string; children: R
         setNotice(friendly(e));
       }
     },
-    [go, put],
+    [go, loadPeer, put],
   );
 
   const accept = useCallback(async () => {
@@ -298,23 +324,34 @@ export function CallProvider({ userId, children }: { userId: string; children: R
     let ch: RealtimeChannel | null = null;
 
     const checkRinging = async () => {
-      if (!cid.current || phaseRef.current !== 'idle') return;
-      const { data } = await supabase.rpc('pending_call', { p_conversation: cid.current });
-      const row = Array.isArray(data) ? data[0] : null;
-      if (row) api.current.ring(row as CallRow);
+      if (phaseRef.current !== 'idle') return;
+      for (const id of conversationIds.current) {
+        const { data } = await supabase.rpc('pending_call', { p_conversation: id });
+        const row = Array.isArray(data) ? data[0] : null;
+        if (row) {
+          cid.current = id;
+          api.current.ring(row as CallRow);
+          return;
+        }
+      }
     };
 
     (async () => {
       try {
-        const id = await getConversationId();
-        if (!alive) return;
-        cid.current = id;
+        const { data: members, error } = await supabase.from('conversation_members').select('conversation_id').eq('user_id', userId);
+        if (error) throw error;
+        conversationIds.current = new Set((members ?? []).map((m) => m.conversation_id));
+        if (!alive || conversationIds.current.size === 0) return;
         ch = supabase
-          .channel('calls:' + id)
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'calls', filter: 'conversation_id=eq.' + id }, (payload) => {
+          .channel('calls:' + userId)
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'calls' }, (payload) => {
             const row = payload.new as CallRow;
+            if (!row?.conversation_id || !conversationIds.current.has(row.conversation_id)) return;
             if (row?.id && payload.eventType === 'INSERT') {
-              if (row.caller_id !== userId && row.status === 'ringing') api.current.ring(row);
+              if (row.caller_id !== userId && row.status === 'ringing') {
+                cid.current = row.conversation_id;
+                api.current.ring(row);
+              }
             } else if (row?.id && payload.eventType === 'UPDATE') {
               const cur = callRef.current;
               if (cur && cur.id === row.id) {

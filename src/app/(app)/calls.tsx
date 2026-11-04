@@ -4,9 +4,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '../../components/Primitives';
 import { Icon } from '../../lib/icons';
 import { useCall } from '../../lib/call';
-import { useUnread } from '../../lib/unread';
 import { useSession } from '../../lib/session';
-import { personColors, useWeee } from '../../theme/weee';
+import { useWeee } from '../../theme/weee';
 import { font } from '../../theme/type';
 import type { CallRow } from '../../lib/calls';
 
@@ -28,29 +27,14 @@ export default function Calls() {
   const { w } = useWeee();
   const insets = useSafeAreaInsets();
   const { session } = useSession();
-  const { partner } = useUnread();
   const call = useCall();
   const uid = session?.user.id ?? '';
-  const name = partner?.display_name?.trim() || 'Your person';
-  const colors = personColors(uid, partner?.id, w);
   const busy = call.phase !== 'idle';
   const off = !call.supported || busy;
-
-  const pill = (bg: string) => ({ flex: 1, minHeight: 52, borderRadius: 26, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: bg, opacity: off ? 0.5 : 1 }) as const;
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: w.paper }} contentContainerStyle={{ paddingTop: insets.top + 20, paddingBottom: insets.bottom + 100, paddingHorizontal: 20, gap: 16 }}>
       <Text accessibilityRole="header" style={{ color: w.ink, fontSize: 32, lineHeight: 36, fontFamily: font.semibold, letterSpacing: -0.64 }}>Calls</Text>
-
-      <View style={{ flexDirection: 'row', gap: 12 }}>
-        <Pressable accessibilityRole="button" accessibilityLabel={'Voice call ' + name} disabled={off} onPress={() => call.start('audio')} style={pill(w.ink)}>
-          <Icon name="phone" size={20} color={w.paper} />
-          <Text style={{ color: w.paper, fontSize: 15, fontFamily: font.semibold }}>Voice</Text>
-        </Pressable>
-        <Pressable accessibilityRole="button" accessibilityLabel={'Video call ' + name} disabled={off} onPress={() => call.start('video')} style={pill(w.ink + '14')}>
-          <Text style={{ color: w.ink, fontSize: 15, fontFamily: font.semibold }}>Video</Text>
-        </Pressable>
-      </View>
 
       {!call.supported && (
         <Text style={{ color: w.ink + 'b3', fontSize: 14, fontFamily: font.regular }}>
@@ -69,9 +53,10 @@ export default function Calls() {
       ) : (
         call.history.map((c) => {
           const missed = c.status === 'missed' && c.caller_id !== uid;
+          const name = c.peer?.display_name?.trim() || 'Contact';
           return (
-            <Pressable key={c.id} accessibilityRole="button" accessibilityLabel={'Call ' + name + ' again'} disabled={off} onPress={() => call.start(c.kind)} style={{ minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: 1, borderBottomColor: w.ink + '14' }}>
-              <Avatar name={partner?.display_name || '?'} diameter={44} color={colors.partner} path={partner?.avatar_path} />
+            <Pressable key={c.id} accessibilityRole="button" accessibilityLabel={'Call ' + name + ' again'} disabled={off} onPress={() => call.start(c.kind, c.conversation_id)} style={{ minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: 1, borderBottomColor: w.ink + '14', opacity: off ? 0.5 : 1 }}>
+              <Avatar name={name} diameter={44} color={w.moss} path={c.peer?.avatar_path} />
               <View style={{ flex: 1 }}>
                 <Text style={{ color: missed ? '#d90035' : w.ink, fontSize: 15, fontFamily: font.semibold }}>{name}</Text>
                 <Text style={{ color: w.ink + '99', fontSize: 12, fontFamily: font.regular }}>{describe(c, uid) + ', ' + new Date(c.created_at).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</Text>

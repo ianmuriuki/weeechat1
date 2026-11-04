@@ -31,7 +31,7 @@ export function CallLogRow({ message, userId }: { message: Message; userId: stri
       accessibilityRole="button"
       accessibilityLabel={(mine ? 'You called. ' : 'They called. ') + title + '. ' + sub + '. Tap to call back'}
       disabled={call.phase !== 'idle'}
-      onPress={() => call.start(video ? 'video' : 'audio')}
+      onPress={() => call.start(video ? 'video' : 'audio', message.conversation_id)}
       style={({ pressed }) => ({
         alignSelf: mine ? 'flex-end' : 'flex-start',
         minWidth: 220,

@@ -11,6 +11,13 @@ export type CallRow = {
   created_at: string;
   answered_at: string | null;
   ended_at: string | null;
+  peer?: CallPeer;
+};
+
+export type CallPeer = {
+  id: string;
+  display_name: string | null;
+  avatar_path: string | null;
 };
 
 // Asks the backend for a LiveKit join token. The backend checks you belong to the conversation.
