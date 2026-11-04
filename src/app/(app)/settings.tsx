@@ -228,6 +228,7 @@ export default function Settings() {
         </>
       )}
       <Text style={label}>Connections</Text>
+      {actionCard('user', 'Friends', 'Find people and manage requests.', () => router.push('/friends' as never))}
       {actionCard('plus', 'Invite friends', 'Create and share an invite code.', () => router.push('/invites' as never))}
 
       <Text style={label}>Theme</Text>
