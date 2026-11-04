@@ -7,7 +7,6 @@ import { Icon, type IconName } from '../lib/icons';
 import { Avatar, IconButton } from './Primitives';
 import { Logo } from './Logo';
 import { timeLabel } from './MessageBubble';
-import { SharedMedia } from './SharedMedia';
 import { space, radius, fontSize } from '../theme/tokens';
 import { font } from '../theme/type';
 
@@ -15,7 +14,6 @@ const pages: { path: string; label: string; icon: IconName }[] = [
   { path: '/chat', label: 'Chats', icon: 'chat' },
   { path: '/weee', label: 'weee', icon: 'rings' },
   { path: '/calls', label: 'Calls', icon: 'phone' },
-  { path: '/media', label: 'Media', icon: 'media' },
 ];
 
 function shortWhen(iso: string) {
@@ -39,7 +37,6 @@ export function DesktopShell({ userId }: { userId: string }) {
   const go = (path: string) => router.replace(path as never);
   const sidebarWidth = width <= 1120 ? 340 : 400;
   const onChat = pathname.startsWith('/chat') || pathname === '/';
-  const onMedia = pathname.startsWith('/media');
 
   useFocusEffect(
     useCallback(() => {
@@ -128,11 +125,6 @@ export function DesktopShell({ userId }: { userId: string }) {
           </View>
         )}
 
-        {onMedia && (
-          <View style={{ flex: 1 }}>
-            <SharedMedia variant="pane" />
-          </View>
-        )}
       </View>
 
       <View style={{ flex: 1, minWidth: 0 }}>

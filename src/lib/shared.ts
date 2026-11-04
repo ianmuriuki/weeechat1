@@ -6,7 +6,7 @@ export type SharedLink = { key: string; url: string; host: string; createdAt: st
 export type SharedData = { photos: SharedItem[]; docs: SharedItem[]; links: SharedLink[]; bytes: number };
 
 type MsgRow = { id: string; media_id: string | null; max_views: number | null; deleted_at: string | null; created_at: string };
-type TextRow = { id: string; body: string | null; created_at: string };
+type TextRow = { id: string; kind: string; body: string | null; created_at: string };
 
 const PAGE = 500;
 const MAX_PAGES = 10;
@@ -39,9 +39,9 @@ export async function fetchShared(conversationId: string): Promise<SharedData> {
     pageAll<TextRow>((a, b) =>
       supabase
         .from('messages')
-        .select('id, body, created_at')
+        .select('id, kind, body, created_at')
         .eq('conversation_id', conversationId)
-        .eq('kind', 'text')
+        .in('kind', ['text', 'link'])
         .is('deleted_at', null)
         .ilike('body', '%http%')
         .order('created_at', { ascending: false })

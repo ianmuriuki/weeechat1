@@ -10,7 +10,6 @@ const ITEMS: { path: string; label: string; icon: IconName }[] = [
   { path: '/chat', label: 'Chats', icon: 'chat' },
   { path: '/weee', label: 'weee', icon: 'rings' },
   { path: '/calls', label: 'Calls', icon: 'phone' },
-  { path: '/media', label: 'Media', icon: 'media' },
   { path: '/settings', label: 'Settings', icon: 'settings' },
 ];
 
@@ -24,7 +23,7 @@ export function NavPill() {
   const found = ITEMS.findIndex((i) => pathname.startsWith(i.path));
   const active = found < 0 ? 0 : found;
 
-  if (pathname.startsWith('/chat/room')) return null;
+  if (pathname.startsWith('/chat/')) return null;
 
   return (
     <View pointerEvents="box-none" style={{ position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 50, paddingBottom: Platform.OS === 'web' ? 0 : insets.bottom, backgroundColor: c.surface, borderTopWidth: 1, borderTopColor: c.divider }}>

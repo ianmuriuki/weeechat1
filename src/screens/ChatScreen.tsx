@@ -759,16 +759,18 @@ export default function ChatScreen({ userId, conversationId }: { userId: string;
               <IconButton icon="arrowLeft" label="Back to chats" onPress={() => (router.canGoBack() ? router.back() : router.replace('/chat' as never))} />
             </View>
           )}
-          <Avatar name={partnerName} diameter={44} color={c.avatarIann} path={partner?.avatar_path} />
-          <View style={{ flexShrink: 1 }}>
-            <Text numberOfLines={1} style={{ color: c.text, fontSize: 15, fontFamily: font.semibold }}>{partnerName}</Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
-              {partnerOnline && !partnerTyping && (
-                <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: c.accent, marginRight: 4 }} />
-              )}
-              <Text numberOfLines={1} style={{ color: c.textSecondary, fontSize: fontSize.meta, fontFamily: font.regular }}>{status}</Text>
+          <Pressable accessibilityRole="button" accessibilityLabel={'Open chat info for ' + partnerName} disabled={!convId} onPress={() => router.push(('/chat/info?conversationId=' + convId) as never)} style={{ flexDirection: 'row', alignItems: 'center', gap: space[3], opacity: convId ? 1 : 0.6 }}>
+            <Avatar name={partnerName} diameter={44} color={c.avatarIann} path={partner?.avatar_path} />
+            <View style={{ flexShrink: 1 }}>
+              <Text numberOfLines={1} style={{ color: c.text, fontSize: 15, fontFamily: font.semibold }}>{partnerName}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
+                {partnerOnline && !partnerTyping && (
+                  <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: c.accent, marginRight: 4 }} />
+                )}
+                <Text numberOfLines={1} style={{ color: c.textSecondary, fontSize: fontSize.meta, fontFamily: font.regular }}>{status}</Text>
+              </View>
             </View>
-          </View>
+          </Pressable>
         </View>
         <IconButton icon="search" label="Search messages" onPress={() => setSearchOpen(true)} />
         <IconButton

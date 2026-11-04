@@ -5,7 +5,6 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../hooks/useTheme';
 import { Icon, type IconName } from '../lib/icons';
-import { getConversationId } from '../lib/chat';
 import { getSignedUrl, useSignedUrl, type MediaRow } from '../lib/media';
 import { fetchShared, type SharedData, type SharedItem, type SharedLink } from '../lib/shared';
 import { MediaViewer } from './MediaViewer';
@@ -207,7 +206,7 @@ function LinkRow({ link, onPress }: { link: SharedLink; onPress: () => void }) {
   );
 }
 
-export function SharedMedia({ variant }: { variant: 'page' | 'pane' }) {
+export function SharedMedia({ variant, conversationId }: { variant: 'page' | 'pane'; conversationId: string }) {
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -226,8 +225,7 @@ export function SharedMedia({ variant }: { variant: 'page' | 'pane' }) {
     if (refresh) setRefreshing(true);
     else if (!dataRef.current) setStatus('loading');
     try {
-      const id = await getConversationId();
-      const next = await fetchShared(id);
+      const next = await fetchShared(conversationId);
       if (mine !== req.current) return;
       dataRef.current = next;
       setData(next);
@@ -239,7 +237,7 @@ export function SharedMedia({ variant }: { variant: 'page' | 'pane' }) {
     } finally {
       if (mine === req.current) setRefreshing(false);
     }
-  }, []);
+  }, [conversationId]);
 
   useFocusEffect(
     useCallback(() => {
@@ -297,7 +295,7 @@ export function SharedMedia({ variant }: { variant: 'page' | 'pane' }) {
     }
   }
 
-  const goChat = () => router.replace('/chat' as never);
+  const goChat = () => router.replace(('/chat/room?conversationId=' + conversationId) as never);
   const refresh = <RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={c.primary} colors={[c.primary]} />;
   const header = <StorageCard bytes={data?.bytes ?? 0} />;
   const listPad = { paddingBottom: space[4] + (variant === 'page' ? 100 + insets.bottom : 0) };
