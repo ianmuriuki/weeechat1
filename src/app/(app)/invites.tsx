@@ -14,7 +14,7 @@ export default function Invites() {
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { session, profile } = useSession();
+  const { session, profile, loading: sessionLoading } = useSession();
   const [invites, setInvites] = useState<Invite[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -36,6 +36,13 @@ export default function Invites() {
     if (profile?.status === 'approved') void Promise.resolve().then(load);
   }, [load, profile?.status]);
 
+  if (sessionLoading) {
+    return (
+      <View style={{ flex: 1, backgroundColor: c.surface, alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator color={c.primary} />
+      </View>
+    );
+  }
   if (!session || profile?.status !== 'approved') return <Redirect href="/settings" />;
 
   async function createInvite() {

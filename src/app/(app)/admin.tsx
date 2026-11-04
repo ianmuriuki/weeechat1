@@ -22,7 +22,7 @@ export default function Admin() {
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { session, profile } = useSession();
+  const { session, profile, loading: sessionLoading } = useSession();
   const [accounts, setAccounts] = useState<PendingAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -43,6 +43,13 @@ export default function Admin() {
     if (profile?.is_admin) void Promise.resolve().then(load);
   }, [load, profile?.is_admin]);
 
+  if (sessionLoading) {
+    return (
+      <View style={{ flex: 1, backgroundColor: c.surface, alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator color={c.primary} />
+      </View>
+    );
+  }
   if (!session || !profile?.is_admin) return <Redirect href="/settings" />;
 
   async function setStatus(id: string, status: 'approved' | 'rejected') {
