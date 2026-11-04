@@ -63,7 +63,7 @@ export default function Members() {
     const { error: disableError } = await supabase.rpc('disable_account', { p_user: member.id });
     setBusyId(null);
     if (disableError) {
-      setError("Couldn't disable that account. Try again.");
+      setError(`Couldn't disable that account: ${disableError.message}`);
       return;
     }
     setMembers((current) => current.map((item) => item.id === member.id ? { ...item, status: 'rejected' } : item));
