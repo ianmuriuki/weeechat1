@@ -1,5 +1,5 @@
-import { useCallback, useState } from 'react';
-import { Pressable, Text, View, useWindowDimensions } from 'react-native';
+import { useCallback, useMemo, useState } from 'react';
+import { Pressable, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ChatScreen from '../../../screens/ChatScreen';
@@ -27,6 +27,8 @@ function ChatList({ userId }: { userId: string }) {
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [query, setQuery] = useState('');
+  const [filter, setFilter] = useState<'all' | 'unread' | 'groups'>('all');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -55,11 +57,65 @@ function ChatList({ userId }: { userId: string }) {
     return last.body ?? '';
   }
 
+  const visibleConversations = useMemo(() => {
+    const text = query.trim().toLowerCase();
+    return conversations.filter((conversation) => {
+      const name = conversation.kind === 'direct' ? conversation.other?.display_name ?? 'Chat' : conversation.title ?? 'Group chat';
+      const matchesQuery = !text || name.toLowerCase().includes(text) || preview(conversation.last).toLowerCase().includes(text);
+      const matchesFilter = filter === 'all' || (filter === 'unread' ? conversation.unread > 0 : conversation.kind === 'group');
+      return matchesQuery && matchesFilter;
+    });
+  }, [conversations, filter, query]);
+
   return (
     <View style={{ flex: 1, backgroundColor: c.surface, paddingTop: insets.top }}>
-      <View style={{ height: 64, paddingHorizontal: space[5], flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-        <Logo size={28} stroke={c.primary} fill={c.surface} />
-        <Text style={{ color: c.primary, fontSize: fontSize.title, fontFamily: font.semibold, letterSpacing: -0.4 }}>Weeez</Text>
+      <View style={{ height: 64, paddingHorizontal: space[5], flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <Logo size={28} stroke={c.primary} fill={c.surface} />
+          <Text style={{ color: c.primary, fontSize: fontSize.title, fontFamily: font.semibold, letterSpacing: -0.4 }}>Weeez</Text>
+        </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Open settings"
+          onPress={() => router.push('/settings' as never)}
+          style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}
+        >
+          <Icon name="more" size={22} color={c.textSecondary} />
+        </Pressable>
+      </View>
+      <View style={{ paddingHorizontal: space[5], gap: space[3], paddingBottom: space[3] }}>
+        <View style={{ height: 44, flexDirection: 'row', alignItems: 'center', gap: space[2], paddingHorizontal: space[3], borderRadius: radius.md, backgroundColor: c.surfaceSubtle }}>
+          <Icon name="search" size={19} color={c.textSecondary} />
+          <TextInput
+            accessibilityLabel="Search chats"
+            placeholder="Search chats"
+            placeholderTextColor={c.textSecondary}
+            value={query}
+            onChangeText={setQuery}
+            style={{ flex: 1, color: c.text, fontSize: fontSize.label, fontFamily: font.regular }}
+          />
+        </View>
+        <View accessibilityRole="tablist" style={{ flexDirection: 'row', gap: space[2] }}>
+          {([
+            ['all', 'All'],
+            ['unread', 'Unread'],
+            ['groups', 'Groups'],
+          ] as const).map(([value, label]) => {
+            const selected = filter === value;
+            return (
+              <Pressable
+                key={value}
+                accessibilityRole="tab"
+                accessibilityLabel={label}
+                accessibilityState={{ selected }}
+                onPress={() => setFilter(value)}
+                style={{ minHeight: 36, paddingHorizontal: space[4], borderRadius: radius.full, justifyContent: 'center', backgroundColor: selected ? c.primary : c.surfaceSubtle }}
+              >
+                <Text style={{ color: selected ? c.onPrimary : c.textSecondary, fontSize: fontSize.meta, fontFamily: selected ? font.semibold : font.medium }}>{label}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
       </View>
       {loading ? (
         <View style={{ paddingHorizontal: space[5], gap: space[4] }}>
@@ -83,9 +139,15 @@ function ChatList({ userId }: { userId: string }) {
             <Text style={{ color: c.onPrimary, fontSize: fontSize.label, fontFamily: font.semibold }}>Find a friend</Text>
           </Pressable>
         </View>
+      ) : visibleConversations.length === 0 ? (
+        <View style={{ alignItems: 'center', paddingHorizontal: space[5], paddingTop: space[10], gap: space[3] }}>
+          <Icon name="search" size={30} color={c.textSecondary} />
+          <Text style={{ color: c.text, fontSize: fontSize.body, fontFamily: font.semibold }}>No matching chats</Text>
+          <Text style={{ color: c.textSecondary, fontSize: fontSize.label, fontFamily: font.regular, textAlign: 'center' }}>Try another search or category.</Text>
+        </View>
       ) : (
         <View>
-          {conversations.map((conversation) => {
+          {visibleConversations.map((conversation) => {
             const name = conversation.kind === 'direct' ? conversation.other?.display_name ?? 'Chat' : conversation.title ?? 'Group chat';
             const mine = conversation.last?.sender_id === userId;
             const tick = conversation.last?.read_at ? 'read' : conversation.last?.delivered_at ? 'delivered' : 'sent';
