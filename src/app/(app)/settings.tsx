@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Constants from 'expo-constants';
+import * as Linking from 'expo-linking';
 import { useTheme, type ThemePref } from '../../theme/ThemeProvider';
 import { useSession } from '../../lib/session';
 import { supabase } from '../../lib/supabase';
@@ -168,6 +169,18 @@ export default function Settings() {
     setPwMsg('Password updated.');
   }
 
+  async function sendPasswordReset() {
+    if (!email) {
+      setPwMsg("Couldn't read your email. Sign in again.");
+      return;
+    }
+    setBusy(true);
+    setPwMsg('');
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: Linking.createURL('/sign-in') });
+    setBusy(false);
+    setPwMsg(error ? "Couldn't send the reset email. Try again." : 'Check your email for a password reset link.');
+  }
+
   const label = { color: c.textSecondary, fontSize: fontSize.meta, fontFamily: font.semibold, letterSpacing: 0.7, textTransform: 'uppercase', marginTop: space[8], marginBottom: space[2] } as const;
   const input = { height: control.md, paddingHorizontal: space[4], borderRadius: radius.xl, borderWidth: 1, borderColor: c.divider, backgroundColor: c.surface, color: c.text, fontFamily: font.regular, fontSize: fontSize.body } as const;
   const note = { color: c.textSecondary, fontSize: fontSize.meta, fontFamily: font.regular, marginTop: space[2] } as const;
@@ -226,6 +239,7 @@ export default function Settings() {
         <>
           <Text style={label}>Administration</Text>
           {actionCard('user', 'Account approvals', 'Review people waiting to join Weeez.', () => router.push('/admin' as never))}
+          {actionCard('user', 'Members', 'Review account status and access.', () => router.push('/members' as never))}
         </>
       )}
       <Text style={label}>Connections</Text>
@@ -279,6 +293,9 @@ export default function Settings() {
         </View>
       )}
       {!!pwMsg && <Text style={note}>{pwMsg}</Text>}
+      <Pressable accessibilityRole="button" disabled={busy} onPress={sendPasswordReset} style={{ minHeight: control.md, justifyContent: 'center', opacity: busy ? 0.5 : 1 }}>
+        <Text style={{ color: c.primary, fontSize: fontSize.body, fontFamily: font.medium }}>Send password reset email</Text>
+      </Pressable>
       <Pressable
         accessibilityRole="button"
         onPress={() => signOutAndUnregister()}
