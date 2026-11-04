@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import type { Picked } from './media';
+import { getConversationClearedAt } from './conversationActions';
 
 export const MESSAGE_COLS =
   'id, conversation_id, sender_id, client_id, kind, body, media_id, reply_to, max_views, views_used, created_at, delivered_at, read_at, deleted_at, edited_at';
@@ -40,7 +41,8 @@ export async function fetchMessages(conversationId: string): Promise<Message[]> 
     .order('created_at', { ascending: false })
     .limit(100);
   if (error) throw error;
-  return (data ?? []) as Message[];
+  const clearedAt = await getConversationClearedAt(conversationId);
+  return ((data ?? []) as Message[]).filter((message) => !clearedAt || message.created_at > clearedAt);
 }
 
 export type Profile = {
@@ -91,25 +93,34 @@ export async function fetchConversationSummaries(userId: string): Promise<Conver
     ? await supabase.from('profiles').select('id, username, display_name, status_text, avatar_path, last_seen_at').in('id', otherIds)
     : { data: [], error: null };
   if (profileError) throw profileError;
+  const clearedAtByConversation = new Map<string, string>();
+  await Promise.all(ids.map(async (id) => {
+    const clearedAt = await getConversationClearedAt(id);
+    if (clearedAt) clearedAtByConversation.set(id, clearedAt);
+  }));
 
   const profileById = new Map((profiles ?? []).map((profile) => [profile.id, profile as Profile]));
   const memberByConversation = new Map<string, string>();
   for (const member of members ?? []) memberByConversation.set(member.conversation_id, member.user_id);
   const latestByConversation = new Map<string, Message>();
   for (const message of (messages ?? []) as Message[]) {
+    const clearedAt = clearedAtByConversation.get(message.conversation_id);
+    if (clearedAt && message.created_at <= clearedAt) continue;
     if (!latestByConversation.has(message.conversation_id)) latestByConversation.set(message.conversation_id, message);
   }
 
   const unreadByConversation = new Map<string, number>();
   const unreadResult = await supabase
     .from('messages')
-    .select('conversation_id')
+    .select('conversation_id, created_at')
     .in('conversation_id', ids)
     .neq('sender_id', userId)
     .is('read_at', null)
     .is('deleted_at', null);
   if (unreadResult.error) throw unreadResult.error;
   for (const message of unreadResult.data ?? []) {
+    const clearedAt = clearedAtByConversation.get(message.conversation_id);
+    if (clearedAt && message.created_at <= clearedAt) continue;
     unreadByConversation.set(message.conversation_id, (unreadByConversation.get(message.conversation_id) ?? 0) + 1);
   }
 

@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import { fetchMedia, type MediaRow } from './media';
+import { getConversationClearedAt } from './conversationActions';
 
 export type SharedItem = { messageId: string; media: MediaRow; createdAt: string };
 export type SharedLink = { key: string; url: string; host: string; createdAt: string };
@@ -25,6 +26,7 @@ async function pageAll<T>(build: (from: number, to: number) => PromiseLike<{ dat
 }
 
 export async function fetchShared(conversationId: string): Promise<SharedData> {
+  const clearedAt = await getConversationClearedAt(conversationId);
   const [msgRows, textRows, sizeRows] = await Promise.all([
     pageAll<MsgRow>((a, b) =>
       supabase
@@ -60,7 +62,7 @@ export async function fetchShared(conversationId: string): Promise<SharedData> {
   ]);
 
   // Photos with a view limit and deleted messages never show up here.
-  const keep = msgRows.filter((m) => m.media_id && !m.deleted_at && !m.max_views);
+  const keep = msgRows.filter((m) => m.media_id && !m.deleted_at && !m.max_views && (!clearedAt || m.created_at > clearedAt));
   const ids = keep.map((m) => m.media_id as string);
   const chunks: string[][] = [];
   for (let i = 0; i < ids.length; i += 40) chunks.push(ids.slice(i, i + 40));
@@ -80,6 +82,7 @@ export async function fetchShared(conversationId: string): Promise<SharedData> {
 
   const links: SharedLink[] = [];
   for (const t of textRows) {
+    if (clearedAt && t.created_at <= clearedAt) continue;
     const found = (t.body ?? '').match(URL_RE) ?? [];
     for (const raw of found) {
       const url = raw.replace(/[.,;:!?)\]}]+$/, '');
