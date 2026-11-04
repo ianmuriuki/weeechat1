@@ -92,7 +92,7 @@ export default function Invites() {
     <View style={{ flex: 1, backgroundColor: c.surface }}>
       <ScrollView contentContainerStyle={{ paddingTop: insets.top + space[4], paddingBottom: insets.bottom + space[8], width: '100%', maxWidth: 600, alignSelf: 'center' }}>
         <View style={{ paddingHorizontal: space[5] }}>
-          <Pressable accessibilityRole="button" onPress={() => router.back()} style={{ minHeight: control.sm, justifyContent: 'center' }}>
+          <Pressable accessibilityRole="button" onPress={() => router.back()} style={{ minHeight: space[11], justifyContent: 'center' }}>
             <Text style={{ color: c.primary, fontSize: fontSize.body, fontFamily: font.semibold }}>Back</Text>
           </Pressable>
           <Text style={{ marginTop: space[6], color: c.text, fontSize: fontSize.pageTitle, fontFamily: font.semibold }}>Invite friends</Text>
@@ -135,11 +135,11 @@ export default function Invites() {
               <Text style={{ marginTop: space[1], color: c.textSecondary, fontSize: fontSize.meta, fontFamily: font.regular }}>{invite.used_by ? 'Used' : 'Unused'}</Text>
               {!invite.used_by && (
                 <View style={{ flexDirection: 'row', marginTop: space[2], gap: space[4] }}>
-                  <Pressable accessibilityRole="button" onPress={() => copyInvite(invite.code)} style={{ minHeight: control.sm, flexDirection: 'row', alignItems: 'center', gap: space[2] }}>
+                  <Pressable accessibilityRole="button" onPress={() => copyInvite(invite.code)} style={{ minHeight: space[11], flexDirection: 'row', alignItems: 'center', gap: space[2] }}>
                     <Icon name="copy" size={18} color={c.primary} />
                     <Text style={{ color: c.primary, fontSize: fontSize.label, fontFamily: font.semibold }}>Copy</Text>
                   </Pressable>
-                  <Pressable accessibilityRole="button" onPress={() => shareInvite(invite.code)} style={{ minHeight: control.sm, flexDirection: 'row', alignItems: 'center', gap: space[2] }}>
+                  <Pressable accessibilityRole="button" onPress={() => shareInvite(invite.code)} style={{ minHeight: space[11], flexDirection: 'row', alignItems: 'center', gap: space[2] }}>
                     <Icon name="forward" size={18} color={c.primary} />
                     <Text style={{ color: c.primary, fontSize: fontSize.label, fontFamily: font.semibold }}>Share</Text>
                   </Pressable>
