@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ActivityIndicator, Platform, Pressable, ScrollView, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { Redirect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../hooks/useTheme';
@@ -294,12 +294,12 @@ export function Onboarding() {
     );
   }
   return (
-    <View style={{ flex: 1, backgroundColor: c.surface }}>
-    <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled" contentContainerStyle={{ flexGrow: 1 }}>
+    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: c.surface }} behavior={Platform.OS === 'web' ? undefined : 'padding'}>
+    <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={{ flexGrow: 1 }}>
       {art}
       <View style={{ marginTop: -24, borderTopLeftRadius: 24, borderTopRightRadius: 24, backgroundColor: c.surface }}>{form}</View>
     </ScrollView>
     <StatusBarCover color={artBg} />
-    </View>
+    </KeyboardAvoidingView>
   );
 }
