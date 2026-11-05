@@ -1,6 +1,6 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Pressable, Text, TextInput, View, useWindowDimensions } from 'react-native';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ChatScreen from '../../../screens/ChatScreen';
 import { Avatar } from '../../../components/Primitives';
@@ -8,7 +8,8 @@ import { Logo } from '../../../components/Logo';
 import { Ticks } from '../../../components/Ticks';
 import { timeLabel } from '../../../components/MessageBubble';
 import { Icon } from '../../../lib/icons';
-import { fetchConversationSummaries, type ConversationSummary } from '../../../lib/chat';
+import type { ConversationSummary } from '../../../lib/chat';
+import { useInbox } from '../../../lib/inbox';
 import { useSession } from '../../../lib/session';
 import { useTheme } from '../../../hooks/useTheme';
 import { space, fontSize, radius } from '../../../theme/tokens';
@@ -24,29 +25,9 @@ function ChatList({ userId }: { userId: string }) {
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const [conversations, setConversations] = useState<ConversationSummary[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const { conversations, loading, error, reload: load, typing } = useInbox();
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<'all' | 'unread' | 'groups'>('all');
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError('');
-    try {
-      setConversations(await fetchConversationSummaries(userId));
-    } catch {
-      setError("Couldn't load chats. Try again.");
-    } finally {
-      setLoading(false);
-    }
-  }, [userId]);
-
-  useFocusEffect(
-    useCallback(() => {
-      void load();
-    }, [load]),
-  );
 
   function preview(last: ConversationSummary['last']) {
     if (!last) return 'No messages yet';
@@ -168,7 +149,7 @@ function ChatList({ userId }: { userId: string }) {
                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space[2] }}>
                     <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 2 }}>
                       {mine && <Ticks state={tick} />}
-                      <Text numberOfLines={1} style={{ flex: 1, color: c.textSecondary, fontSize: fontSize.label, fontFamily: font.regular }}>{preview(conversation.last)}</Text>
+                      <Text numberOfLines={1} style={{ flex: 1, color: typing[conversation.id] ? c.primary : c.textSecondary, fontSize: fontSize.label, fontFamily: typing[conversation.id] ? font.medium : font.regular }}>{typing[conversation.id] ? 'typing' : preview(conversation.last)}</Text>
                     </View>
                     {conversation.unread > 0 && <View style={{ minWidth: 20, height: 20, paddingHorizontal: 5, borderRadius: 10, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: c.onAccent, fontSize: fontSize.caption, fontFamily: font.semibold }}>{conversation.unread > 99 ? '99+' : conversation.unread}</Text></View>}
                   </View>

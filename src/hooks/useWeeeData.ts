@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AppState } from 'react-native';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { getConversationId } from '../lib/chat';
 import type { Mood } from '../components/weee/MoodFace';
@@ -149,20 +150,30 @@ export function useWeeeData(uid: string, from: string, to: string, today: string
       pending.clear();
       names.forEach((n) => loaders.current[n]?.());
     };
-    let ch = supabase.channel('weee:' + cid);
-    for (const t of TABLES) {
-      ch = ch.on('postgres_changes', { event: '*', schema: 'public', table: t }, () => {
-        pending.add(t);
-        clearTimeout(timer);
-        timer = setTimeout(flush, 200);
+    let cancelled = false;
+    let ch: RealtimeChannel | null = null;
+    (async () => {
+      // An earlier visit can still be closing its connection. Wait for it, or listeners cannot be added.
+      const stale = supabase.getChannels().find((x) => x.topic === 'realtime:weee:' + cid);
+      if (stale) await supabase.removeChannel(stale);
+      if (cancelled) return;
+      let next = supabase.channel('weee:' + cid);
+      for (const t of TABLES) {
+        next = next.on('postgres_changes', { event: '*', schema: 'public', table: t }, () => {
+          pending.add(t);
+          clearTimeout(timer);
+          timer = setTimeout(flush, 200);
+        });
+      }
+      next.subscribe((status) => {
+        if (status === 'SUBSCRIBED') loaders.current.all?.();
       });
-    }
-    ch.subscribe((status) => {
-      if (status === 'SUBSCRIBED') loaders.current.all?.();
-    });
+      ch = next;
+    })();
     return () => {
+      cancelled = true;
       clearTimeout(timer);
-      supabase.removeChannel(ch);
+      if (ch) supabase.removeChannel(ch);
     };
   }, [cid]);
 

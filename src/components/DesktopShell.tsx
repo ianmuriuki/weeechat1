@@ -1,8 +1,7 @@
 import { Platform, Pressable, Text, View, useWindowDimensions } from 'react-native';
-import { Slot, useFocusEffect, usePathname, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { Slot, usePathname, useRouter } from 'expo-router';
 import { useTheme } from '../hooks/useTheme';
-import { fetchConversationSummaries, type ConversationSummary } from '../lib/chat';
+import { useInbox } from '../lib/inbox';
 import { Icon, type IconName } from '../lib/icons';
 import { Avatar, IconButton } from './Primitives';
 import { Logo } from './Logo';
@@ -32,23 +31,10 @@ export function DesktopShell({ userId }: { userId: string }) {
   const { width } = useWindowDimensions();
   const pathname = usePathname();
   const router = useRouter();
-  const [conversations, setConversations] = useState<ConversationSummary[]>([]);
-  const [chatError, setChatError] = useState('');
+  const { conversations, error: chatError, typing } = useInbox();
   const go = (path: string) => router.replace(path as never);
   const sidebarWidth = width <= 1120 ? 340 : 400;
   const onChat = pathname.startsWith('/chat') || pathname === '/';
-
-  useFocusEffect(
-    useCallback(() => {
-      let alive = true;
-      fetchConversationSummaries(userId)
-        .then((rows) => alive && setConversations(rows))
-        .catch(() => alive && setChatError("Couldn't load chats. Try again."));
-      return () => {
-        alive = false;
-      };
-    }, [userId]),
-  );
 
   return (
     <View style={{ flex: 1, flexDirection: 'row', backgroundColor: c.surface }}>
@@ -115,7 +101,7 @@ export function DesktopShell({ userId }: { userId: string }) {
                       {last && <Text style={{ color: conversation.unread > 0 ? c.primary : c.textSecondary, fontSize: fontSize.meta, fontFamily: font.regular }}>{shortWhen(last.created_at)}</Text>}
                     </View>
                     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space[2] }}>
-                      <Text numberOfLines={1} style={{ flex: 1, color: c.textSecondary, fontSize: fontSize.meta, fontFamily: font.regular }}>{preview}</Text>
+                      <Text numberOfLines={1} style={{ flex: 1, color: typing[conversation.id] ? c.primary : c.textSecondary, fontSize: fontSize.meta, fontFamily: typing[conversation.id] ? font.medium : font.regular }}>{typing[conversation.id] ? 'typing' : preview}</Text>
                       {conversation.unread > 0 && <View style={{ minWidth: 20, height: 20, paddingHorizontal: 5, borderRadius: 10, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: c.onAccent, fontSize: fontSize.caption, fontFamily: font.semibold }}>{conversation.unread > 99 ? '99+' : conversation.unread}</Text></View>}
                     </View>
                   </View>

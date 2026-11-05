@@ -12,6 +12,7 @@ import * as Clipboard from 'expo-clipboard';
 import { fetchMessages, fetchReactions, getConversationId, MESSAGE_COLS, type Message, type Profile, type Reaction } from '../lib/chat';
 import { fetchMedia, getSignedUrl, pickDocument, pickFromCamera, pickFromGallery, uploadMedia, type MediaRow, type Picked } from '../lib/media';
 import { useUnread } from '../lib/unread';
+import { useInbox } from '../lib/inbox';
 import { useCall } from '../lib/call';
 import { clearNotifications } from '../lib/push';
 import { Icon } from '../lib/icons';
@@ -115,6 +116,7 @@ export default function ChatScreen({ userId, conversationId, initialAction }: { 
   const requested = useRef(new Set<string>());
 
   const { setChatFocused, readOpen, sendTyping: inboxTyping } = useUnread();
+  const { setActive, sendTyping: listTyping } = useInbox();
   const call = useCall();
   const [focused, setFocused] = useState(false);
   const messagesRef = useRef<Message[]>([]);
@@ -310,14 +312,19 @@ export default function ChatScreen({ userId, conversationId, initialAction }: { 
       const unread = messagesRef.current.filter((m) => m.sender_id !== userId && !m.read_at && !m.deleted_at);
       setUnreadFrom(unread.length ? { id: unread[unread.length - 1].client_id, count: unread.length } : null);
       setChatFocused(true, convId);
+      setActive(convId);
     } else {
       setChatFocused(false);
+      setActive(null);
       setUnreadFrom(null);
     }
-  }, [focused, loading, userId, convId, setChatFocused]);
+  }, [focused, loading, userId, convId, setChatFocused, setActive]);
 
   // If this screen unmounts (desktop page switch), the inbox listener must stop treating the chat as open.
-  useEffect(() => () => setChatFocused(false), [setChatFocused]);
+  useEffect(() => () => {
+    setChatFocused(false);
+    setActive(null);
+  }, [setChatFocused, setActive]);
 
   useEffect(() => {
     if (!info) return;
@@ -344,6 +351,7 @@ export default function ChatScreen({ userId, conversationId, initialAction }: { 
 
   function sendTyping(typing: boolean) {
     inboxTyping(typing);
+    if (convRef.current) listTyping(convRef.current, memberIdsRef.current.filter((id) => id !== userId), typing);
     const ch = channelRef.current;
     if (!ch || !subscribed.current) return;
     ch.send({ type: 'broadcast', event: 'typing', payload: { userId, typing } });
