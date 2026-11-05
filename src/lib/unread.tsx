@@ -7,13 +7,14 @@ import { setChatOpen } from './push';
 
 type Ctx = {
   unread: number;
-  setChatFocused: (focused: boolean) => void;
+  setChatFocused: (focused: boolean, conversationId?: string | null) => void;
   last: Message | null;
   partner: Profile | null;
   partnerTyping: boolean;
   partnerOnline: boolean;
   sendTyping: (typing: boolean) => void;
   resync: () => void;
+  readOpen: () => void;
 };
 
 const UnreadContext = createContext<Ctx>({
@@ -25,6 +26,7 @@ const UnreadContext = createContext<Ctx>({
   partnerOnline: false,
   sendTyping: () => {},
   resync: () => {},
+  readOpen: () => {},
 });
 
 export function UnreadProvider({ userId, children }: { userId: string; children: ReactNode }) {
@@ -35,6 +37,7 @@ export function UnreadProvider({ userId, children }: { userId: string; children:
   const [partnerOnline, setPartnerOnline] = useState(false);
   const focused = useRef(false);
   const convRef = useRef<string | null>(null);
+  const openConv = useRef<string | null>(null);
   const chRef = useRef<RealtimeChannel | null>(null);
   const subscribed = useRef(false);
   const typingClear = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -54,11 +57,15 @@ export function UnreadProvider({ userId, children }: { userId: string; children:
   }, [userId]);
 
   const readIfVisible = useCallback(async () => {
-    const id = convRef.current;
+    const id = openConv.current ?? convRef.current;
     if (!id || !focused.current || AppState.currentState !== 'active') return;
     await markRead(id);
-    setUnread(0);
+    if (id === convRef.current) setUnread(0);
   }, []);
+
+  const readOpen = useCallback(() => {
+    void readIfVisible();
+  }, [readIfVisible]);
 
   // Runs when the app connects, wakes up, or the list comes into view.
   const resync = useCallback(async () => {
@@ -81,8 +88,9 @@ export function UnreadProvider({ userId, children }: { userId: string; children:
   }, [userId, countUnread, readIfVisible]);
 
   const setChatFocused = useCallback(
-    (f: boolean) => {
+    (f: boolean, conversationId?: string | null) => {
       focused.current = f;
+      openConv.current = f ? (conversationId ?? convRef.current) : null;
       setChatOpen(f);
       if (f) readIfVisible();
     },
@@ -123,7 +131,7 @@ export function UnreadProvider({ userId, children }: { userId: string; children:
             });
             if (payload.eventType !== 'INSERT' || m.sender_id === userId) return;
             setPartnerTyping(false);
-            if (focused.current && AppState.currentState === 'active') {
+            if (focused.current && openConv.current === id && AppState.currentState === 'active') {
               markRead(id);
               setUnread(0);
             } else {
@@ -173,7 +181,7 @@ export function UnreadProvider({ userId, children }: { userId: string; children:
   }, [userId, resync]);
 
   return (
-    <UnreadContext.Provider value={{ unread, setChatFocused, last, partner, partnerTyping, partnerOnline, sendTyping, resync }}>
+    <UnreadContext.Provider value={{ unread, setChatFocused, last, partner, partnerTyping, partnerOnline, sendTyping, resync, readOpen }}>
       {children}
     </UnreadContext.Provider>
   );

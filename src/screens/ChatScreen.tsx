@@ -9,7 +9,7 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 import { useTheme } from '../hooks/useTheme';
 import { supabase } from '../lib/supabase';
 import * as Clipboard from 'expo-clipboard';
-import { fetchMessages, fetchProfiles, fetchReactions, getConversationId, MESSAGE_COLS, type Message, type Profile, type Reaction } from '../lib/chat';
+import { fetchMessages, fetchReactions, getConversationId, MESSAGE_COLS, type Message, type Profile, type Reaction } from '../lib/chat';
 import { fetchMedia, getSignedUrl, pickDocument, pickFromCamera, pickFromGallery, uploadMedia, type MediaRow, type Picked } from '../lib/media';
 import { useUnread } from '../lib/unread';
 import { useCall } from '../lib/call';
@@ -106,6 +106,7 @@ export default function ChatScreen({ userId, conversationId, initialAction }: { 
   const fabAnim = useRef(new Animated.Value(0)).current;
 
   const convRef = useRef<string | null>(null);
+  const memberIdsRef = useRef<string[]>([]);
   const channelRef = useRef<RealtimeChannel | null>(null);
   const subscribed = useRef(false);
   const lastTypingSent = useRef(0);
@@ -113,7 +114,7 @@ export default function ChatScreen({ userId, conversationId, initialAction }: { 
   const typingClear = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const requested = useRef(new Set<string>());
 
-  const { setChatFocused, sendTyping: inboxTyping } = useUnread();
+  const { setChatFocused, readOpen, sendTyping: inboxTyping } = useUnread();
   const call = useCall();
   const [focused, setFocused] = useState(false);
   const messagesRef = useRef<Message[]>([]);
@@ -196,6 +197,7 @@ export default function ChatScreen({ userId, conversationId, initialAction }: { 
         ]);
         if (membersResult.error) throw membersResult.error;
         const memberIds = [...new Set([userId, ...(membersResult.data ?? []).map((member) => member.user_id)])];
+        memberIdsRef.current = memberIds;
         const { data: profs, error: profilesError } = await supabase
           .from('profiles')
           .select('id, username, display_name, status_text, avatar_path, last_seen_at')
@@ -216,6 +218,7 @@ export default function ChatScreen({ userId, conversationId, initialAction }: { 
             const m = payload.new as Message;
             if (!m || !m.id) return;
             upsert(m);
+            if (payload.eventType === 'INSERT' && m.sender_id !== userId) readOpen();
           })
           .on('postgres_changes', { event: '*', schema: 'public', table: 'reactions' }, (payload) => {
             const row = (payload.eventType === 'DELETE' ? payload.old : payload.new) as Partial<Reaction>;
@@ -234,7 +237,15 @@ export default function ChatScreen({ userId, conversationId, initialAction }: { 
             const keys = Object.keys(channelRef.current?.presenceState() ?? {});
             const online = keys.some((k) => k !== userId);
             setPartnerOnline(online);
-            if (!online) fetchProfiles().then(setProfiles).catch(() => {});
+            if (!online && memberIdsRef.current.length) {
+              supabase
+                .from('profiles')
+                .select('id, username, display_name, status_text, avatar_path, last_seen_at')
+                .in('id', memberIdsRef.current)
+                .then(({ data }) => {
+                  if (data && !cancelled) setProfiles(data as Profile[]);
+                });
+            }
           })
           .on('broadcast', { event: 'typing' }, ({ payload }: { payload: any }) => {
             if (!payload || payload.userId === userId) return;
@@ -275,7 +286,7 @@ export default function ChatScreen({ userId, conversationId, initialAction }: { 
       channelRef.current = null;
       supabase.from('profiles').update({ last_seen_at: new Date().toISOString() }).eq('id', userId).then(() => {});
     };
-  }, [userId, conversationId, upsert, syncLatest]);
+  }, [userId, conversationId, upsert, syncLatest, readOpen]);
 
   // Load the media rows that messages point to.
   useEffect(() => {
@@ -298,12 +309,12 @@ export default function ChatScreen({ userId, conversationId, initialAction }: { 
     if (focused) {
       const unread = messagesRef.current.filter((m) => m.sender_id !== userId && !m.read_at && !m.deleted_at);
       setUnreadFrom(unread.length ? { id: unread[unread.length - 1].client_id, count: unread.length } : null);
-      setChatFocused(true);
+      setChatFocused(true, convId);
     } else {
       setChatFocused(false);
       setUnreadFrom(null);
     }
-  }, [focused, loading, userId, setChatFocused]);
+  }, [focused, loading, userId, convId, setChatFocused]);
 
   // If this screen unmounts (desktop page switch), the inbox listener must stop treating the chat as open.
   useEffect(() => () => setChatFocused(false), [setChatFocused]);
