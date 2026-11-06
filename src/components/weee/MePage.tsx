@@ -91,7 +91,7 @@ export function MePage() {
 
   const [sheet, setSheet] = useState<null | 'plan' | 'move'>(null);
   const [pTitle, setPTitle] = useState('');
-  const [pTime, setPTime] = useState('19:30');
+  const [pTime, setPTime] = useState(() => pad((new Date().getHours() + 1) % 24) + ':00');
   const [pCat, setPCat] = useState<Cat>('other');
   const [pErr, setPErr] = useState('');
   const [mType, setMType] = useState('Walk');

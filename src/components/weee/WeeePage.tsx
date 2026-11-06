@@ -202,7 +202,7 @@ export function WeeePage({ link }: { link: WeeLink }) {
   }, [data.ready, data.checkins, todayKey]);
 
   const [pTitle, setPTitle] = useState('');
-  const [pTime, setPTime] = useState('19:30');
+  const [pTime, setPTime] = useState(() => pad((new Date().getHours() + 1) % 24) + ':00');
   const [pWho, setPWho] = useState<Who>('us');
   const [pCat, setPCat] = useState<Cat>('other');
   const [pErr, setPErr] = useState('');
@@ -663,7 +663,7 @@ export function WeeePage({ link }: { link: WeeLink }) {
             </View>
             <View style={{ flex: 1 }}>
               <Text numberOfLines={2} style={{ color: mt.fg, fontSize: 13, fontFamily: font.medium }}>{h.label}</Text>
-              <Text style={{ color: mt.fg, opacity: 0.75, fontSize: 11, fontFamily: font.regular }}>{h.done ? '1 day' : '0 days'}</Text>
+              <Text style={{ color: mt.fg, opacity: 0.75, fontSize: 11, fontFamily: font.regular }}>{h.done ? 'Done today' : 'Not yet'}</Text>
             </View>
           </Pressable>
         ))}
