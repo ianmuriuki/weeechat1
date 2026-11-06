@@ -53,6 +53,14 @@ export function PushBridge() {
           if (pathRef.current !== '/calls') router.push('/calls' as never);
           return;
         }
+        if (data?.type === 'signup') {
+          if (pathRef.current !== '/admin') router.push('/admin' as never);
+          return;
+        }
+        if (data?.type === 'friend_request' || data?.type === 'friend') {
+          if (pathRef.current !== '/friends') router.push('/friends' as never);
+          return;
+        }
         if (data?.type === 'wee_request') {
           if (pathRef.current !== '/wee-requests') router.push('/wee-requests' as never);
           return;

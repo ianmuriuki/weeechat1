@@ -4,7 +4,7 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import type { Mood } from '../components/weee/MoodFace';
 
-export type Cat = 'date' | 'errand' | 'workout' | 'study' | 'trip';
+export type Cat = 'other' | 'date' | 'errand' | 'workout' | 'study' | 'trip';
 export type Who = 'us' | 'me' | 'you';
 export type Plan = { id: string; title: string; time: string; day: string; who: Who; cat: Cat };
 export type Task = { id: string; title: string; owner: 'mine' | 'yours' | 'ours'; priv: boolean; done: boolean; doneByMe: boolean };

@@ -7,7 +7,6 @@ import { supabase } from '../../lib/supabase';
 import { Icon } from '../../lib/icons';
 import { useKeyboardHeight } from '../../hooks/useKeyboardHeight';
 import { Avatar, IconButton } from '../Primitives';
-import { StatusBarCover } from '../StatusBarCover';
 import { Chip, WeeeSheet } from './WeeeSheet';
 import { MoveSession } from './MoveSession';
 import { MoodFace, type Mood } from './MoodFace';
@@ -30,7 +29,7 @@ export const WORKOUTS = ['Walk', 'Run', 'Cycling', 'Swimming', 'Strength', 'HIIT
 export const DURATIONS = [5, 10, 15, 30, 45, 60];
 export const HABITS = [{ key: 'water', label: 'Water' }, { key: 'read', label: 'Read' }, { key: 'walk', label: 'Walk' }, { key: 'sleep', label: 'Sleep before 11' }];
 export const CATS: { key: Cat; color: Tone; label: string }[] = [
-  { key: 'date', color: 'rose', label: 'Date' }, { key: 'errand', color: 'mint', label: 'Errand' },
+  { key: 'other', color: 'moss', label: 'Other' }, { key: 'date', color: 'rose', label: 'Date' }, { key: 'errand', color: 'mint', label: 'Errand' },
   { key: 'workout', color: 'sky', label: 'Workout' }, { key: 'study', color: 'lilac', label: 'Study' }, { key: 'trip', color: 'sun', label: 'Trip' },
 ];
 
@@ -205,7 +204,7 @@ export function WeeePage({ link }: { link: WeeLink }) {
   const [pTitle, setPTitle] = useState('');
   const [pTime, setPTime] = useState('19:30');
   const [pWho, setPWho] = useState<Who>('us');
-  const [pCat, setPCat] = useState<Cat>('date');
+  const [pCat, setPCat] = useState<Cat>('other');
   const [pErr, setPErr] = useState('');
   const [mType, setMType] = useState('Walk');
   const [mMin, setMMin] = useState(15);
@@ -531,7 +530,7 @@ export function WeeePage({ link }: { link: WeeLink }) {
                   <Text numberOfLines={2} style={{ color: t.fg, fontSize: 17, fontFamily: font.semibold }}>{p.title}</Text>
                   <View style={{ flexDirection: 'row', gap: 6 }}>
                     <Tag label={whoLabel(p.who)} fg={t.fg} bg={t.tile} />
-                    <Tag label={cat.label} fg={t.fg} bg={t.tile} />
+                    {p.cat !== 'other' && <Tag label={cat.label} fg={t.fg} bg={t.tile} />}
                   </View>
                 </View>
                 {p.who === 'us' && (
@@ -755,7 +754,6 @@ export function WeeePage({ link }: { link: WeeLink }) {
           ))}
         </View>
       </ScrollView>
-      <StatusBarCover color={w.paper} />
 
       {sheet === 'plan' && (
         <WeeeSheet title="Add plan" onClose={() => setSheet(null)}>
@@ -767,10 +765,8 @@ export function WeeePage({ link }: { link: WeeLink }) {
           <View style={{ flexDirection: 'row', gap: 8 }}>
             {(['us', 'me', 'you'] as Who[]).map((x) => <Chip key={x} label={x === 'us' ? 'Us' : x === 'me' ? 'Me' : partner?.display_name?.trim() || 'You'} active={pWho === x} onPress={() => setPWho(x)} />)}
           </View>
-          <View style={{ flexDirection: 'row', gap: 12 }}>
-            {CATS.map((ct) => (
-              <Pressable key={ct.key} accessibilityRole="button" accessibilityLabel={ct.label + ' category'} accessibilityState={{ selected: pCat === ct.key }} onPress={() => setPCat(ct.key)} style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: w[ct.color], borderWidth: pCat === ct.key ? 3 : 0, borderColor: w.ink }} />
-            ))}
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+            {CATS.map((ct) => <Chip key={ct.key} label={ct.label} active={pCat === ct.key} onPress={() => setPCat(ct.key)} />)}
           </View>
           {!!pErr && <Text style={{ color: '#d90035', fontSize: 14, fontFamily: font.regular }}>{pErr}</Text>}
           <Pressable accessibilityRole="button" onPress={addPlan} style={[pillBtn(w.ink), { minHeight: 52 }]}>
