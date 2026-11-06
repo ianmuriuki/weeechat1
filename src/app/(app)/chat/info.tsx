@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar, IconButton } from '../../../components/Primitives';
 import { Icon } from '../../../lib/icons';
+import { WeeEntry } from '../../../components/weee/WeeEntry';
 import { fetchProfiles, type Profile } from '../../../lib/chat';
 import { getSignedUrl } from '../../../lib/media';
 import { fetchShared, type SharedData } from '../../../lib/shared';
@@ -230,6 +231,7 @@ export default function ChatInfo() {
                 </View>
               )}
             </Pressable>
+            {conversation.kind === 'direct' && <WeeEntry conversationId={conversationId} />}
             {conversation.kind === 'direct' && section('Actions', <>
               {row('plus', 'Add to group', () => void openGroupActions())}
               {row('trash', 'Clear chat', () => { setActionError(''); setAction('clear'); })}

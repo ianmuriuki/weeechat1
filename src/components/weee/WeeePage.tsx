@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { AccessibilityInfo, Animated, AppState, Platform, Pressable, ScrollView, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSession } from '../../lib/session';
-import { useUnread } from '../../lib/unread';
+import type { WeeLink } from '../../lib/weeLink';
 import { supabase } from '../../lib/supabase';
 import { Icon } from '../../lib/icons';
 import { useKeyboardHeight } from '../../hooks/useKeyboardHeight';
@@ -25,29 +25,29 @@ const QUESTIONS = [
   'What have you wanted to tell me?', 'Where should we spend a slow afternoon?', 'What are you quietly proud of?',
   'What song feels like us right now?', 'What should we cook together next?', 'What moment would you keep from this month?',
 ];
-const MOODS: [Mood, string][] = [['calm', 'Calm'], ['happy', 'Happy'], ['tired', 'Tired'], ['stressed', 'Stressed'], ['loving', 'Loving'], ['hug', 'Need a hug']];
-const WORKOUTS = ['Walk', 'Run', 'Cycling', 'Swimming', 'Strength', 'HIIT', 'Yoga', 'Stretch', 'Dance', 'Football', 'Hike', 'Other'];
-const DURATIONS = [5, 10, 15, 30, 45, 60];
-const HABITS = [{ key: 'water', label: 'Water' }, { key: 'read', label: 'Read' }, { key: 'walk', label: 'Walk' }, { key: 'sleep', label: 'Sleep before 11' }];
-const CATS: { key: Cat; color: Tone; label: string }[] = [
+export const MOODS: [Mood, string][] = [['calm', 'Calm'], ['happy', 'Happy'], ['tired', 'Tired'], ['stressed', 'Stressed'], ['loving', 'Loving'], ['hug', 'Need a hug']];
+export const WORKOUTS = ['Walk', 'Run', 'Cycling', 'Swimming', 'Strength', 'HIIT', 'Yoga', 'Stretch', 'Dance', 'Football', 'Hike', 'Other'];
+export const DURATIONS = [5, 10, 15, 30, 45, 60];
+export const HABITS = [{ key: 'water', label: 'Water' }, { key: 'read', label: 'Read' }, { key: 'walk', label: 'Walk' }, { key: 'sleep', label: 'Sleep before 11' }];
+export const CATS: { key: Cat; color: Tone; label: string }[] = [
   { key: 'date', color: 'rose', label: 'Date' }, { key: 'errand', color: 'mint', label: 'Errand' },
   { key: 'workout', color: 'sky', label: 'Workout' }, { key: 'study', color: 'lilac', label: 'Study' }, { key: 'trip', color: 'sun', label: 'Trip' },
 ];
 
 
-const pad = (n: number) => String(n).padStart(2, '0');
-const keyOf = (d: Date) => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
-function fmt12(t: string) {
+export const pad = (n: number) => String(n).padStart(2, '0');
+export const keyOf = (d: Date) => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+export function fmt12(t: string) {
   const [h, m] = t.split(':').map(Number);
   return (h % 12 || 12) + ':' + pad(m) + ' ' + (h < 12 ? 'AM' : 'PM');
 }
 
-const clockOf = (ms: number) => {
+export const clockOf = (ms: number) => {
   const sec = Math.max(0, Math.ceil(ms / 1000));
   return pad(Math.floor(sec / 60)) + ':' + pad(sec % 60);
 };
 
-function Tag({ label, fg, bg }: { label: string; fg: string; bg: string }) {
+export function Tag({ label, fg, bg }: { label: string; fg: string; bg: string }) {
   return (
     <View style={{ alignSelf: 'flex-start', height: 24, paddingHorizontal: 10, borderRadius: 12, justifyContent: 'center', backgroundColor: bg }}>
       <Text style={{ color: fg, fontSize: 11, fontFamily: font.semibold }}>{label}</Text>
@@ -55,7 +55,7 @@ function Tag({ label, fg, bg }: { label: string; fg: string; bg: string }) {
   );
 }
 
-function Segmented({ options, value, onChange, label }: { options: string[]; value: string; onChange: (v: string) => void; label: string }) {
+export function Segmented({ options, value, onChange, label }: { options: string[]; value: string; onChange: (v: string) => void; label: string }) {
   const { w } = useWeee();
   const [width, setWidth] = useState(0);
   const x = useRef(new Animated.Value(0)).current;
@@ -76,7 +76,7 @@ function Segmented({ options, value, onChange, label }: { options: string[]; val
   );
 }
 
-function MoodTile({ mood, label, selected, onPress }: { mood: Mood; label: string; selected: boolean; onPress: () => void }) {
+export function MoodTile({ mood, label, selected, onPress }: { mood: Mood; label: string; selected: boolean; onPress: () => void }) {
   const { w, isDark } = useWeee();
   const s = useRef(new Animated.Value(selected ? 1.1 : 1)).current;
   useEffect(() => {
@@ -101,13 +101,14 @@ function MoodTile({ mood, label, selected, onPress }: { mood: Mood; label: strin
   );
 }
 
-export function WeeePage() {
+export function WeeePage({ link }: { link: WeeLink }) {
   const { w, isDark } = useWeee();
   const insets = useSafeAreaInsets();
   const kb = useKeyboardHeight();
   const { width } = useWindowDimensions();
   const { session } = useSession();
-  const { partner, partnerOnline } = useUnread();
+  const partner = useMemo(() => ({ id: link.partner_id, display_name: link.partner_name, avatar_path: link.partner_avatar, last_seen_at: null as string | null }), [link.partner_id, link.partner_name, link.partner_avatar]);
+  const partnerOnline = false;
   const wide = width > 820;
   const uid = session?.user.id ?? '';
   const partnerName = partner?.display_name?.trim() || 'Friend';
@@ -161,7 +162,7 @@ export function WeeePage() {
   const sel = found >= 0 ? found : Math.max(0, days.findIndex((d) => d.key === todayKey));
   const selDay = days[sel];
 
-  const data = useWeeeData(uid, days[0].key, days[6].key, todayKey);
+  const data = useWeeeData(uid, days[0].key, days[6].key, todayKey, link.conversation_id);
   const mood: Mood | null = data.checkins[todayKey]?.me?.mood ?? null;
   const partnerToday = data.checkins[todayKey]?.partner;
   const [energy, setEnergy] = useState('steady');
@@ -745,7 +746,7 @@ export function WeeePage() {
         style={{ flex: 1 }}
         keyboardShouldPersistTaps="handled"
         automaticallyAdjustKeyboardInsets
-        contentContainerStyle={{ paddingHorizontal: wide ? Math.max(20, width * 0.04) : 20, paddingTop: wide ? 32 : insets.top + 20, paddingBottom: (wide ? 40 : insets.bottom + 100) + kb }}
+        contentContainerStyle={{ paddingHorizontal: wide ? Math.max(20, width * 0.04) : 20, paddingTop: wide ? 32 : 12, paddingBottom: (wide ? 40 : insets.bottom + 100) + kb }}
       >
         <View style={{ width: '100%', maxWidth: 1180, alignSelf: 'center', gap: 14 }}>
           {!!data.error && <Text accessibilityRole="alert" style={{ color: '#d90035', fontSize: 14, fontFamily: font.regular }}>{data.error}</Text>}

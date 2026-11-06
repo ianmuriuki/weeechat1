@@ -53,8 +53,16 @@ export function PushBridge() {
           if (pathRef.current !== '/calls') router.push('/calls' as never);
           return;
         }
-        if (data?.type === 'weee' || data?.type === 'workout-running' || data?.type === 'workout-done') {
-          if (pathRef.current !== '/weee') router.push('/weee' as never);
+        if (data?.type === 'wee_request') {
+          if (pathRef.current !== '/wee-requests') router.push('/wee-requests' as never);
+          return;
+        }
+        if (data?.type === 'weee' || data?.type === 'wee_link') {
+          router.push((data.conversationId ? '/weee?conversationId=' + data.conversationId : '/me') as never);
+          return;
+        }
+        if (data?.type === 'workout-running' || data?.type === 'workout-done') {
+          if (pathRef.current !== '/me') router.push('/me' as never);
           return;
         }
         if (data?.type !== 'message' || !data.conversationId) return;

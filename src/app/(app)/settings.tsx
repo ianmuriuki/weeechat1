@@ -240,6 +240,7 @@ export default function Settings() {
           <Text style={label}>Administration</Text>
           {actionCard('user', 'Account approvals', 'Review people waiting to join Weeez.', () => router.push('/admin' as never))}
           {actionCard('user', 'Members', 'Review account status and access.', () => router.push('/members' as never))}
+          {actionCard('user', 'Wee links', 'Approve requests, end links and switch features.', () => router.push('/wee-requests' as never))}
         </>
       )}
       <Text style={label}>Connections</Text>

@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
-import { getConversationId } from '../lib/chat';
 import type { Mood } from '../components/weee/MoodFace';
 
 export type Cat = 'date' | 'errand' | 'workout' | 'study' | 'trip';
@@ -21,16 +20,15 @@ const NUDGE_MS = 10 * 60 * 1000;
 const SAVE_ERROR = "Couldn't save that. Check your connection and try again.";
 const PLAN_COLS = 'id, created_by, title, plan_time, plan_day, who, cat';
 const TASK_COLS = 'id, created_by, title, assignee, is_private, done_by, done_at, created_at';
-const TABLES = ['weee_plans', 'weee_tasks', 'weee_checkins', 'weee_moves', 'weee_habits', 'weee_answers', 'weee_settings', 'weee_nudges'];
+const TABLES = ['weee_plans', 'weee_tasks', 'weee_checkins', 'weee_moves', 'me_habits', 'weee_answers', 'weee_settings', 'weee_nudges'];
 
 function parseDay(key: string) {
   const [y, m, d] = key.split('-').map(Number);
   return new Date(y, m - 1, d);
 }
 
-// All shared state for the weee page. from and to are the first and last day of the week on screen, today is the device date.
-export function useWeeeData(uid: string, from: string, to: string, today: string) {
-  const [cid, setCid] = useState<string | null>(null);
+// All shared state for the Wee page. cid is the conversation of the active Wee link. from and to are the first and last day of the week on screen, today is the device date.
+export function useWeeeData(uid: string, from: string, to: string, today: string, cid: string | null) {
   const [ready, setReady] = useState(false);
   const [error, setError] = useState('');
   const [planRows, setPlanRows] = useState<PlanRow[]>([]);
@@ -54,22 +52,6 @@ export function useWeeeData(uid: string, from: string, to: string, today: string
   }
   useEffect(() => () => clearTimeout(errTimer.current), []);
 
-  useEffect(() => {
-    if (!uid) return;
-    let alive = true;
-    getConversationId().then(
-      (id) => {
-        if (alive) setCid(id);
-      },
-      () => {
-        if (alive) setError("Couldn't load your shared space.");
-      },
-    );
-    return () => {
-      alive = false;
-    };
-  }, [uid]);
-
   async function loadPlans() {
     if (!cid) return;
     const { data, error: e } = await supabase.from('weee_plans').select(PLAN_COLS).eq('conversation_id', cid).gte('plan_day', from).lte('plan_day', to).order('plan_time');
@@ -92,7 +74,7 @@ export function useWeeeData(uid: string, from: string, to: string, today: string
   }
   async function loadHabits() {
     if (!uid) return;
-    const { data, error: e } = await supabase.from('weee_habits').select('habit').eq('user_id', uid).eq('day', today);
+    const { data, error: e } = await supabase.from('me_habits').select('habit').eq('user_id', uid).eq('day', today);
     if (!e) setHabitKeys(((data ?? []) as { habit: string }[]).map((r) => r.habit));
   }
   async function loadAnswers() {
@@ -121,7 +103,7 @@ export function useWeeeData(uid: string, from: string, to: string, today: string
     weee_tasks: loadTasks,
     weee_checkins: loadCheckins,
     weee_moves: loadMoves,
-    weee_habits: loadHabits,
+    me_habits: loadHabits,
     weee_answers: loadAnswers,
     weee_settings: loadSettings,
     weee_nudges: loadNudge,
@@ -143,6 +125,8 @@ export function useWeeeData(uid: string, from: string, to: string, today: string
   // Any change to a weee table triggers a short delayed reload of that table. Row security decides what arrives.
   useEffect(() => {
     if (!cid) return;
+    let alive = true;
+    let ch: RealtimeChannel | null = null;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const pending = new Set<string>();
     const flush = () => {
@@ -150,30 +134,28 @@ export function useWeeeData(uid: string, from: string, to: string, today: string
       pending.clear();
       names.forEach((n) => loaders.current[n]?.());
     };
-    let cancelled = false;
-    let ch: RealtimeChannel | null = null;
     (async () => {
-      // An earlier visit can still be closing its connection. Wait for it, or listeners cannot be added.
-      const stale = supabase.getChannels().find((x) => x.topic === 'realtime:weee:' + cid);
+      const name = 'weee:' + cid;
+      const stale = supabase.getChannels().find((x) => x.topic === 'realtime:' + name);
       if (stale) await supabase.removeChannel(stale);
-      if (cancelled) return;
-      let next = supabase.channel('weee:' + cid);
+      if (!alive) return;
+      let c = supabase.channel(name);
       for (const t of TABLES) {
-        next = next.on('postgres_changes', { event: '*', schema: 'public', table: t }, () => {
+        c = c.on('postgres_changes', { event: '*', schema: 'public', table: t }, () => {
           pending.add(t);
           clearTimeout(timer);
           timer = setTimeout(flush, 200);
         });
       }
-      next.subscribe((status) => {
+      c.subscribe((status) => {
         if (status === 'SUBSCRIBED') loaders.current.all?.();
       });
-      ch = next;
+      ch = c;
     })();
     return () => {
-      cancelled = true;
+      alive = false;
       clearTimeout(timer);
-      if (ch) supabase.removeChannel(ch);
+      if (ch) void supabase.removeChannel(ch);
     };
   }, [cid]);
 
@@ -320,11 +302,11 @@ export function useWeeeData(uid: string, from: string, to: string, today: string
   async function toggleHabit(habit: string, on: boolean) {
     setHabitKeys((l) => (on ? Array.from(new Set([...l, habit])) : l.filter((k) => k !== habit)));
     const { error: e } = on
-      ? await supabase.from('weee_habits').upsert({ user_id: uid, day: today, habit }, { onConflict: 'user_id,day,habit', ignoreDuplicates: true })
-      : await supabase.from('weee_habits').delete().eq('user_id', uid).eq('day', today).eq('habit', habit);
+      ? await supabase.from('me_habits').upsert({ user_id: uid, day: today, habit }, { onConflict: 'user_id,day,habit', ignoreDuplicates: true })
+      : await supabase.from('me_habits').delete().eq('user_id', uid).eq('day', today).eq('habit', habit);
     if (e) {
       fail(e.message);
-      loaders.current.weee_habits?.();
+      loaders.current.me_habits?.();
     }
   }
 

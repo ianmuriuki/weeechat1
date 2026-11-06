@@ -3,6 +3,7 @@ import { Redirect, Stack } from 'expo-router';
 import { useSession } from '../../lib/session';
 import { UnreadProvider } from '../../lib/unread';
 import { InboxProvider } from '../../lib/inbox';
+import { WeeLinkProvider } from '../../lib/weeLink';
 import { CallProvider } from '../../lib/call';
 import { CallUI } from '../../components/CallUI';
 import { useTheme } from '../../hooks/useTheme';
@@ -30,6 +31,7 @@ export default function AppLayout() {
   return (
     <UnreadProvider userId={session.user.id}>
       <InboxProvider userId={session.user.id}>
+      <WeeLinkProvider userId={session.user.id}>
       <CallProvider userId={session.user.id}>
         {width > 820 ? (
           <DesktopShell userId={session.user.id} />
@@ -41,6 +43,7 @@ export default function AppLayout() {
         )}
         <CallUI />
       </CallProvider>
+      </WeeLinkProvider>
       </InboxProvider>
     </UnreadProvider>
   );

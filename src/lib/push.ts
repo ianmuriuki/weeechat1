@@ -27,8 +27,10 @@ export function setChatOpen(open: boolean) {
 export async function ensureChannels() {
   if (Platform.OS !== 'android') return;
   const N = await loadNotifications();
-  await N.setNotificationChannelAsync('messages', { name: 'Messages', importance: N.AndroidImportance.HIGH });
-  await N.setNotificationChannelAsync('alerts', { name: 'Shared activity and alerts', importance: N.AndroidImportance.HIGH, enableVibrate: true, vibrationPattern: [0, 250, 250, 250] });
+  await N.setNotificationChannelAsync('messages_v2', { name: 'Messages', importance: N.AndroidImportance.HIGH, sound: 'default', enableVibrate: true, vibrationPattern: [0, 250, 250, 250] });
+  await N.deleteNotificationChannelAsync('messages').catch(() => {});
+  await N.deleteNotificationChannelAsync('alerts').catch(() => {});
+  await N.setNotificationChannelAsync('alerts_v2', { name: 'Shared activity and alerts', importance: N.AndroidImportance.HIGH, sound: 'default', enableVibrate: true, vibrationPattern: [0, 250, 250, 250] });
   await N.setNotificationChannelAsync('workout', { name: 'Workout in progress', importance: N.AndroidImportance.LOW });
   await N.setNotificationChannelAsync('calls', {
     name: 'Calls',
