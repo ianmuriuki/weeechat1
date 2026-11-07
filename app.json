@@ -8,7 +8,8 @@
     "scheme": "weeez",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/expo.icon",
+      "bitcode": false
     },
     "android": {
       "adaptiveIcon": {
@@ -24,10 +25,22 @@
         "android.permission.FOREGROUND_SERVICE",
         "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK",
         "android.permission.CAMERA",
-        "android.permission.POST_NOTIFICATIONS"
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK",
+        "android.permission.CAMERA",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.ACCESS_NETWORK_STATE",
+        "android.permission.INTERNET",
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.WAKE_LOCK",
+        "android.permission.BLUETOOTH"
       ],
       "package": "com.weeez.app",
-      "allowBackup": false
+      "allowBackup": false,
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "output": "server",
@@ -103,6 +116,12 @@
       }
     },
     "owner": "muriuki-iann",
-    "primaryColor": "#008069"
+    "primaryColor": "#008069",
+    "runtimeVersion": {
+      "policy": "fingerprint"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/90c8f662-187d-4647-8695-66ac7ba5b8c7"
+    }
   }
 }

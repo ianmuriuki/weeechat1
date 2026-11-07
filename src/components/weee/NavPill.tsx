@@ -30,7 +30,7 @@ export function NavPill() {
   if (pathname.startsWith('/chat/') || pathname.startsWith('/weee')) return null;
 
   return (
-    <View pointerEvents="box-none" style={{ position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 50, paddingBottom: Platform.OS === 'web' ? 0 : insets.bottom, backgroundColor: c.surface, borderTopWidth: 1, borderTopColor: c.divider }}>
+    <View pointerEvents="box-none" style={{ paddingBottom: Platform.OS === 'web' ? 0 : insets.bottom, backgroundColor: c.surface, borderTopWidth: 1, borderTopColor: c.divider }}>
       <View
         accessibilityRole="tablist"
         style={{ width: '100%', height: 72, paddingHorizontal: 8, flexDirection: 'row', alignItems: 'stretch' }}

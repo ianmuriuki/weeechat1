@@ -410,7 +410,7 @@ export function MePage() {
         style={{ flex: 1 }}
         keyboardShouldPersistTaps="handled"
         automaticallyAdjustKeyboardInsets
-        contentContainerStyle={{ paddingHorizontal: wide ? Math.max(20, width * 0.04) : 20, paddingTop: wide ? 32 : insets.top + 20, paddingBottom: (wide ? 40 : insets.bottom + 100) + kb }}
+        contentContainerStyle={{ paddingHorizontal: wide ? Math.max(20, width * 0.04) : 20, paddingTop: wide ? 32 : insets.top + 20, paddingBottom: (wide ? 40 : 24) + kb }}
       >
         <View style={{ width: '100%', maxWidth: 720, alignSelf: 'center', gap: 14 }}>
           {!!data.error && <Text accessibilityRole="alert" style={{ color: '#d90035', fontSize: 14, fontFamily: font.regular }}>{data.error}</Text>}

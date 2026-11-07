@@ -16,6 +16,7 @@ import { useInbox } from '../lib/inbox';
 import { useCall } from '../lib/call';
 import { clearNotifications } from '../lib/push';
 import { Icon } from '../lib/icons';
+import { WeeChatButton } from '../components/weee/WeeChatButton';
 import { Avatar, IconButton } from '../components/Primitives';
 import { MessageBubble, timeLabel } from '../components/MessageBubble';
 import { CallLogRow } from '../components/CallLogRow';
@@ -837,6 +838,8 @@ export default function ChatScreen({ userId, conversationId, initialAction }: { 
           <Text style={{ color: c.warningText, fontSize: fontSize.meta, fontFamily: font.regular }}>{error}</Text>
         </View>
       )}
+
+      {!!convId && <WeeChatButton conversationId={convId} top={72 + insets.top + space[2]} />}
 
       {!!info && (
         <View style={{ height: 36, alignItems: 'center', justifyContent: 'center', backgroundColor: c.surfaceSubtle }}>

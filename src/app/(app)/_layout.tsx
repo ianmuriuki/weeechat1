@@ -3,6 +3,7 @@ import { Redirect, Stack } from 'expo-router';
 import { useSession } from '../../lib/session';
 import { UnreadProvider } from '../../lib/unread';
 import { InboxProvider } from '../../lib/inbox';
+import { useAppUpdates } from '../../lib/appUpdates';
 import { WeeLinkProvider } from '../../lib/weeLink';
 import { CallProvider } from '../../lib/call';
 import { CallUI } from '../../components/CallUI';
@@ -18,6 +19,7 @@ export default function AppLayout() {
   const { session, loading, needsProfile } = useSession();
   const { c } = useTheme();
   const { width } = useWindowDimensions();
+  useAppUpdates();
 
   if (loading) {
     return (

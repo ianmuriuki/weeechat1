@@ -745,7 +745,7 @@ export function WeeePage({ link }: { link: WeeLink }) {
         style={{ flex: 1 }}
         keyboardShouldPersistTaps="handled"
         automaticallyAdjustKeyboardInsets
-        contentContainerStyle={{ paddingHorizontal: wide ? Math.max(20, width * 0.04) : 20, paddingTop: wide ? 32 : 12, paddingBottom: (wide ? 40 : insets.bottom + 100) + kb }}
+        contentContainerStyle={{ paddingHorizontal: wide ? Math.max(20, width * 0.04) : 20, paddingTop: wide ? 32 : 12, paddingBottom: (wide ? 40 : insets.bottom + 24) + kb }}
       >
         <View style={{ width: '100%', maxWidth: 1180, alignSelf: 'center', gap: 14 }}>
           {!!data.error && <Text accessibilityRole="alert" style={{ color: '#d90035', fontSize: 14, fontFamily: font.regular }}>{data.error}</Text>}
