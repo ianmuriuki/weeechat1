@@ -211,7 +211,6 @@ export function CallProvider({ userId, children }: { userId: string; children: R
             .catch(() => {});
         }
       } catch (e) {
-        console.warn('call connect failed', e);
         setNotice(friendly(e));
         await api.current.hangup();
       }
@@ -260,7 +259,6 @@ export function CallProvider({ userId, children }: { userId: string; children: R
           api.current.hangup();
         }, RING_MS);
       } catch (e) {
-        console.warn('start call failed', e);
         setNotice(friendly(e));
       }
     },
@@ -376,7 +374,6 @@ export function CallProvider({ userId, children }: { userId: string; children: R
             }
           });
       } catch (e) {
-        console.warn('call listener failed', e);
       }
     })();
 

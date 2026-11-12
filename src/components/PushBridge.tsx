@@ -6,6 +6,15 @@ import { useSession } from '../lib/session';
 import { canPush, clearNotifications, loadNotifications, registerForPush } from '../lib/push';
 import { requestCallAction } from '../lib/callAction';
 
+const SCREEN_TYPES: Record<string, string[]> = {
+  '/admin': ['signup'],
+  '/friends': ['friend_request', 'friend'],
+  '/wee-requests': ['wee_request'],
+  '/weee': ['weee', 'wee_link'],
+  '/me': ['workout-done'],
+  '/chat/room': ['message'],
+};
+
 // Registers this phone for push after sign in and opens the chat when a notification is tapped.
 export function PushBridge() {
   const { session, loading } = useSession();
@@ -22,14 +31,23 @@ export function PushBridge() {
     registerForPush();
   }, [loading, uid]);
 
+  // A notification leaves the tray once the thing it is about has been opened.
+  const cid = params.conversationId;
   useEffect(() => {
     if (!canPush() || loading || !uid) return;
-    clearNotifications();
+    const sweep = () => {
+      if (AppState.currentState !== 'active') return;
+      const types = SCREEN_TYPES[pathname];
+      const needsId = pathname === '/weee' || pathname === '/chat/room';
+      if (types && (!needsId || cid)) void clearNotifications(types, needsId ? cid : undefined);
+      void clearNotifications(['account']);
+    };
+    sweep();
     const sub = AppState.addEventListener('change', (s) => {
-      if (s === 'active') clearNotifications();
+      if (s === 'active') sweep();
     });
     return () => sub.remove();
-  }, [loading, uid]);
+  }, [loading, uid, pathname, cid]);
 
   useEffect(() => {
     if (!canPush() || loading || !uid) return;
@@ -84,7 +102,7 @@ export function PushBridge() {
         N.clearLastNotificationResponse();
       }
       sub = N.addNotificationResponseReceivedListener(open);
-    })().catch((e) => console.warn('push listener setup failed', e));
+    })().catch(() => {});
     return () => {
       alive = false;
       sub?.remove();

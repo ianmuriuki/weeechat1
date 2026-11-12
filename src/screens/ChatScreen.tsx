@@ -15,6 +15,8 @@ import { useUnread } from '../lib/unread';
 import { useInbox } from '../lib/inbox';
 import { useCall } from '../lib/call';
 import { clearNotifications } from '../lib/push';
+import { enqueueText, flushOutbox, onOutbox, queuedFor, queuedToMessage } from '../lib/outbox';
+import { readCache, writeCache } from '../lib/cache';
 import { Icon } from '../lib/icons';
 import { WeeChatButton } from '../components/weee/WeeChatButton';
 import { Avatar, IconButton } from '../components/Primitives';
@@ -193,23 +195,50 @@ export default function ChatScreen({ userId, conversationId, initialAction }: { 
         if (cancelled) return;
         convRef.current = id;
         setConvId(id);
-        const [msgs, membersResult, reacts] = await Promise.all([
-          fetchMessages(id),
-          supabase.from('conversation_members').select('user_id').eq('conversation_id', id),
-          fetchReactions(id),
+        // Open from the phone first, so the chat is there without a connection.
+        const [cached, queued] = await Promise.all([
+          readCache<{ messages: Message[]; profiles: Profile[] }>('chat.' + id),
+          queuedFor(userId, id),
         ]);
-        if (membersResult.error) throw membersResult.error;
-        const memberIds = [...new Set([userId, ...(membersResult.data ?? []).map((member) => member.user_id)])];
-        memberIdsRef.current = memberIds;
-        const { data: profs, error: profilesError } = await supabase
-          .from('profiles')
-          .select('id, username, display_name, status_text, avatar_path, last_seen_at')
-          .in('id', memberIds);
-        if (profilesError) throw profilesError;
         if (cancelled) return;
-        setMessages(msgs);
-        setProfiles((profs ?? []) as Profile[]);
-        setReactions(reacts);
+        const waiting = queued.map(queuedToMessage);
+        const combine = (base: Message[], prev: Message[]) => {
+          const map = new Map(base.map((x) => [x.client_id, x] as const));
+          for (const x of [...waiting, ...prev]) {
+            if ((x.pending || x.failed || x.id.startsWith('local-')) && !map.has(x.client_id)) map.set(x.client_id, x);
+          }
+          return Array.from(map.values()).sort((a, b) => b.created_at.localeCompare(a.created_at));
+        };
+        if (cached) {
+          memberIdsRef.current = cached.profiles.map((p) => p.id);
+          setMessages((prev) => combine(cached.messages, prev));
+          setProfiles(cached.profiles);
+          setLoading(false);
+        } else if (waiting.length) {
+          setMessages((prev) => combine([], prev));
+        }
+        try {
+          const [msgs, membersResult, reacts] = await Promise.all([
+            fetchMessages(id),
+            supabase.from('conversation_members').select('user_id').eq('conversation_id', id),
+            fetchReactions(id),
+          ]);
+          if (membersResult.error) throw membersResult.error;
+          const memberIds = [...new Set([userId, ...(membersResult.data ?? []).map((member) => member.user_id)])];
+          memberIdsRef.current = memberIds;
+          const { data: profs, error: profilesError } = await supabase
+            .from('profiles')
+            .select('id, username, display_name, status_text, avatar_path, last_seen_at')
+            .in('id', memberIds);
+          if (profilesError) throw profilesError;
+          if (cancelled) return;
+          setMessages((prev) => combine(msgs, prev));
+          setProfiles((profs ?? []) as Profile[]);
+          setReactions(reacts);
+        } catch (e) {
+          // Offline with a saved copy: stay open on it. The connection will catch up by itself.
+          if (!cached) throw e;
+        }
 
         // An earlier visit can still be closing its connection. Wait for it, or listeners cannot be added.
         const stale = supabase.getChannels().find((ch) => ch.topic === 'realtime:room:' + id);
@@ -290,6 +319,28 @@ export default function ChatScreen({ userId, conversationId, initialAction }: { 
       supabase.from('profiles').update({ last_seen_at: new Date().toISOString() }).eq('id', userId).then(() => {});
     };
   }, [userId, conversationId, upsert, syncLatest, readOpen]);
+
+  // Keep a copy of the latest messages on the phone.
+  useEffect(() => {
+    if (!convId || loading) return;
+    const t = setTimeout(() => {
+      const keep = messages.filter((m) => !m.pending && !m.failed && !m.id.startsWith('local-') && !m.id.startsWith('call-')).slice(0, 100);
+      if (keep.length || profiles.length) writeCache('chat.' + convId, { messages: keep, profiles });
+    }, 800);
+    return () => clearTimeout(t);
+  }, [messages, profiles, convId, loading]);
+
+  // Results of messages that were waiting to be sent.
+  useEffect(
+    () =>
+      onOutbox((e) => {
+        if (e.conversationId !== convRef.current) return;
+        if (e.type === 'failed') markFailed(e.clientId);
+        else if (e.message) upsert(e.message);
+        else syncLatest();
+      }),
+    [upsert, syncLatest],
+  );
 
   // Load the media rows that messages point to.
   useEffect(() => {
@@ -404,12 +455,9 @@ export default function ChatScreen({ userId, conversationId, initialAction }: { 
     sendTyping(false);
     upsert(optimistic);
     scrollToBottom();
-    const { data, error: err } = await supabase
-      .from('messages')
-      .upsert({ conversation_id: convId, sender_id: userId, client_id, kind: 'text', body, reply_to }, { onConflict: 'sender_id,client_id', ignoreDuplicates: true })
-      .select(MESSAGE_COLS);
-    if (err) markFailed(client_id);
-    else if (data && data[0]) upsert(data[0] as Message);
+    // Saved on the phone first. It is sent now, or as soon as there is a connection.
+    await enqueueText(userId, { client_id, conversation_id: convId, sender_id: userId, body, reply_to, created_at: optimistic.created_at });
+    void flushOutbox(userId);
   }
 
   async function sendPicked(picked: Picked, existing?: Message, opts?: { caption: string; twice: boolean }) {
@@ -453,7 +501,6 @@ export default function ChatScreen({ userId, conversationId, initialAction }: { 
       if (err) throw err;
       if (data && data[0]) upsert({ ...(data[0] as Message), local: undefined });
     } catch (e: any) {
-      console.warn('send media failed', e);
       markFailed(client_id);
       setError("Couldn't send. " + (e?.message ?? 'Unknown error'));
     }

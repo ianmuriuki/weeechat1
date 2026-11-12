@@ -162,7 +162,6 @@ export function UnreadProvider({ userId, children }: { userId: string; children:
           });
         chRef.current = channel;
       } catch (e) {
-        console.warn('inbox listener failed', e);
       }
     })();
 

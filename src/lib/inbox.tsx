@@ -3,7 +3,9 @@ import { AppState } from 'react-native';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 import { fetchConversationSummaries, type ConversationSummary } from './chat';
-import { clearNotifications } from './push';
+import { clearMessageNotificationsExcept, clearNotifications } from './push';
+import { flushOutbox } from './outbox';
+import { readCache, writeCache } from './cache';
 
 type Ctx = {
   conversations: ConversationSummary[];
@@ -38,6 +40,7 @@ export function InboxProvider({ userId, children }: { userId: string; children: 
   const subscribed = useRef(false);
   const previous = useRef<Record<string, number>>({});
   const alive = useRef(true);
+  const hasRows = useRef(false);
 
   const load = useCallback(async () => {
     try {
@@ -48,10 +51,14 @@ export function InboxProvider({ userId, children }: { userId: string; children: 
         if ((previous.current[row.id] ?? 0) > 0 && row.unread === 0) void clearNotifications(['message'], row.id);
         previous.current[row.id] = row.unread;
       }
+      void clearMessageNotificationsExcept(next.filter((r) => r.unread > 0).map((r) => r.id));
+      hasRows.current = true;
+      writeCache('inbox.' + userId, next);
       setRows(next);
       setError('');
     } catch {
-      if (alive.current) setError("Couldn't load chats. Try again.");
+      // Offline with a saved list: keep showing it instead of an error.
+      if (alive.current && !hasRows.current) setError("Couldn't load chats. Try again.");
     } finally {
       if (alive.current) setLoading(false);
     }
@@ -67,6 +74,13 @@ export function InboxProvider({ userId, children }: { userId: string; children: 
   useEffect(() => {
     alive.current = true;
     let cancelled = false;
+    readCache<ConversationSummary[]>('inbox.' + userId).then((cached) => {
+      if (cached && alive.current && !hasRows.current) {
+        hasRows.current = true;
+        setRows(cached);
+        setLoading(false);
+      }
+    });
     void load();
 
     (async () => {
@@ -110,6 +124,27 @@ export function InboxProvider({ userId, children }: { userId: string; children: 
       channelRef.current = null;
     };
   }, [userId, load, reload]);
+
+  // Sends messages that were written offline, and tells the server this phone is online so they show as delivered.
+  useEffect(() => {
+    const run = () => {
+      void flushOutbox(userId).then((n) => {
+        if (n > 0) reload();
+      });
+      supabase.rpc('mark_all_delivered').then(() => {}, () => {});
+    };
+    run();
+    const sub = AppState.addEventListener('change', (s) => {
+      if (s === 'active') run();
+    });
+    const t = setInterval(() => {
+      if (AppState.currentState === 'active') void flushOutbox(userId).then((n) => { if (n > 0) reload(); });
+    }, 10000);
+    return () => {
+      sub.remove();
+      clearInterval(t);
+    };
+  }, [userId, reload]);
 
   const setActive = useCallback((id: string | null) => setActiveState(id), []);
 

@@ -61,7 +61,6 @@ export async function startAlarms(type: string, endsAt: number) {
     });
     await showRunning(type, type + ', ends at ' + hhmm(endsAt));
   } catch (e) {
-    console.warn('workout alarm failed', e);
   }
 }
 
@@ -72,7 +71,6 @@ export async function pauseAlarms(type: string, leftMs: number) {
     await N.cancelScheduledNotificationAsync('workout-done').catch(() => {});
     await showRunning(type, type + ', paused with ' + Math.max(1, Math.ceil(leftMs / 60000)) + ' min left');
   } catch (e) {
-    console.warn('workout pause failed', e);
   }
 }
 

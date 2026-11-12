@@ -82,7 +82,7 @@ export async function fetchConversationSummaries(userId: string): Promise<Conver
   const [{ data: conversations, error: conversationError }, { data: members, error: memberError }, { data: messages, error: messageError }] = await Promise.all([
     supabase.from('conversations').select('id, kind, title, avatar_path, created_at').in('id', ids),
     supabase.from('conversation_members').select('conversation_id, user_id').in('conversation_id', ids).neq('user_id', userId),
-    supabase.from('messages').select(MESSAGE_COLS).in('conversation_id', ids).order('created_at', { ascending: false }).limit(200),
+    supabase.rpc('my_last_messages'),
   ]);
   if (conversationError) throw conversationError;
   if (memberError) throw memberError;
@@ -124,6 +124,7 @@ export async function fetchConversationSummaries(userId: string): Promise<Conver
     unreadByConversation.set(message.conversation_id, (unreadByConversation.get(message.conversation_id) ?? 0) + 1);
   }
 
+  const createdAt = new Map(((conversations ?? []) as Array<{ id: string; created_at: string }>).map((c) => [c.id, c.created_at] as const));
   return ((conversations ?? []) as Array<{ id: string; kind: 'direct' | 'group'; title: string | null; avatar_path: string | null; created_at: string }>)
     .map((conversation) => ({
       id: conversation.id,
@@ -134,17 +135,15 @@ export async function fetchConversationSummaries(userId: string): Promise<Conver
       last: latestByConversation.get(conversation.id) ?? null,
       unread: unreadByConversation.get(conversation.id) ?? 0,
     }))
-    .sort((a, b) => (b.last?.created_at ?? b.id).localeCompare(a.last?.created_at ?? a.id));
+    .sort((a, b) => (b.last?.created_at ?? createdAt.get(b.id) ?? '').localeCompare(a.last?.created_at ?? createdAt.get(a.id) ?? ''));
 }
 
 export async function markRead(conversationId: string) {
-  const { error } = await supabase.rpc('mark_read', { p_conversation: conversationId });
-  if (error) console.warn('mark_read failed', error.message);
+  await supabase.rpc('mark_read', { p_conversation: conversationId });
 }
 
 export async function markDelivered(conversationId: string) {
-  const { error } = await supabase.rpc('mark_delivered', { p_conversation: conversationId });
-  if (error) console.warn('mark_delivered failed', error.message);
+  await supabase.rpc('mark_delivered', { p_conversation: conversationId });
 }
 
 export type Reaction = { message_id: string; conversation_id: string; user_id: string; emoji: string };

@@ -3,6 +3,7 @@ import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { requireOptionalNativeModule } from 'expo';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabase';
+import { clearCaches } from './cache';
 
 // Remote push needs a real Android build. Expo Go and the web are skipped.
 export function canPush() {
@@ -63,6 +64,23 @@ export async function clearNotifications(only?: string[], conversationId?: strin
   } catch {}
 }
 
+// A message notification leaves the tray once its chat has nothing unread.
+export async function clearMessageNotificationsExcept(unreadConversationIds: string[]) {
+  if (!canPush()) return;
+  try {
+    const N = await loadNotifications();
+    const shown = await N.getPresentedNotificationsAsync();
+    await Promise.all(
+      shown
+        .filter((n) => {
+          const data = n.request.content.data as { type?: string; conversationId?: string } | undefined;
+          return data?.type === 'message' && !!data.conversationId && !unreadConversationIds.includes(data.conversationId);
+        })
+        .map((n) => N.dismissNotificationAsync(n.request.identifier)),
+    );
+  } catch {}
+}
+
 let handlerSet = false;
 async function initHandler() {
   if (handlerSet) return;
@@ -106,7 +124,6 @@ export async function registerForPush(): Promise<string | null> {
     AsyncStorage.setItem(TOKEN_KEY, data).catch(() => {});
     return data;
   } catch (e) {
-    console.warn('push registration failed', e);
     return null;
   }
 }
@@ -128,5 +145,6 @@ export async function unregisterPush() {
 // Stops this phone receiving the account's pushes, then signs out. The wait is capped so sign out never hangs.
 export async function signOutAndUnregister() {
   await Promise.race([unregisterPush(), new Promise<void>((resolve) => setTimeout(resolve, 3000))]);
+  await clearCaches();
   await supabase.auth.signOut();
 }
