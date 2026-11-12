@@ -28,7 +28,8 @@ import { SendPreview } from '../components/SendPreview';
 import { TypingDots } from '../components/TypingDots';
 import { ChatWallpaper } from '../components/ChatWallpaper';
 import { MessageMenu } from '../components/MessageMenu';
-import { EmojiPanel } from '../components/EmojiPanel';
+import { MediaPanel } from '../components/MediaPanel';
+import type { GifPick } from '../lib/giphy';
 import { VoiceRecorder } from '../components/VoiceRecorder';
 import { ChatSearch } from '../components/ChatSearch';
 import { useKeyboardHeight } from '../hooks/useKeyboardHeight';
@@ -96,6 +97,8 @@ export default function ChatScreen({ userId, conversationId, initialAction }: { 
   const [menuMsg, setMenuMsg] = useState<Message | null>(null);
   const [info, setInfo] = useState('');
   const [emojiOpen, setEmojiOpen] = useState(false);
+  const [pinnedId, setPinnedId] = useState<string | null>(null);
+  const [pinnedExtra, setPinnedExtra] = useState<Message | null>(null);
   const kb = useKeyboardHeight();
   const [searchOpen, setSearchOpen] = useState(false);
   const [highlightId, setHighlightId] = useState<string | null>(null);
@@ -161,6 +164,15 @@ export default function ChatScreen({ userId, conversationId, initialAction }: { 
     });
   }, []);
 
+  const loadPinned = useCallback(async (id: string) => {
+    try {
+      const { data } = await supabase.from('conversations').select('pinned_message_id').eq('id', id).maybeSingle();
+      setPinnedId((data as { pinned_message_id: string | null } | null)?.pinned_message_id ?? null);
+    } catch {
+      // Keep what we have.
+    }
+  }, []);
+
   // Messages can arrive while the app sleeps or the connection is down. Pull the latest when we are back.
   const syncLatest = useCallback(async () => {
     const id = convRef.current;
@@ -168,6 +180,7 @@ export default function ChatScreen({ userId, conversationId, initialAction }: { 
     try {
       const latest = await fetchMessages(id);
       fetchReactions(id).then(setReactions).catch(() => {});
+      void loadPinned(id);
       setMessages((prev) => {
         const map = new Map(prev.map((x) => [x.client_id, x] as const));
         for (const m of latest) {
@@ -179,7 +192,7 @@ export default function ChatScreen({ userId, conversationId, initialAction }: { 
     } catch {
       // The next wake up will try again.
     }
-  }, []);
+  }, [loadPinned]);
 
   useEffect(() => {
     let cancelled = false;
@@ -195,6 +208,7 @@ export default function ChatScreen({ userId, conversationId, initialAction }: { 
         if (cancelled) return;
         convRef.current = id;
         setConvId(id);
+        void loadPinned(id);
         // Open from the phone first, so the chat is there without a connection.
         const [cached, queued] = await Promise.all([
           readCache<{ messages: Message[]; profiles: Profile[] }>('chat.' + id),
@@ -260,6 +274,10 @@ export default function ChatScreen({ userId, conversationId, initialAction }: { 
               return payload.eventType === 'DELETE' || !row.emoji ? rest : [...rest, row as Reaction];
             });
           })
+          .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'conversations', filter: 'id=eq.' + id }, (payload) => {
+            const row = payload.new as { pinned_message_id?: string | null };
+            setPinnedId(row?.pinned_message_id ?? null);
+          })
           .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles' }, (payload) => {
             const p = payload.new as Profile;
             if (!p || !p.id) return;
@@ -318,7 +336,28 @@ export default function ChatScreen({ userId, conversationId, initialAction }: { 
       channelRef.current = null;
       supabase.from('profiles').update({ last_seen_at: new Date().toISOString() }).eq('id', userId).then(() => {});
     };
-  }, [userId, conversationId, upsert, syncLatest, readOpen]);
+  }, [userId, conversationId, upsert, syncLatest, readOpen, loadPinned]);
+
+  // The pinned message can be older than the messages loaded, so fetch it by itself.
+  useEffect(() => {
+    if (!pinnedId) {
+      setPinnedExtra(null);
+      return;
+    }
+    if (messages.some((m) => m.id === pinnedId) || pinnedExtra?.id === pinnedId) return;
+    let alive = true;
+    supabase
+      .from('messages')
+      .select(MESSAGE_COLS)
+      .eq('id', pinnedId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (alive) setPinnedExtra((data as Message | null) ?? null);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [pinnedId, messages, pinnedExtra]);
 
   // Keep a copy of the latest messages on the phone.
   useEffect(() => {
@@ -457,6 +496,49 @@ export default function ChatScreen({ userId, conversationId, initialAction }: { 
     scrollToBottom();
     // Saved on the phone first. It is sent now, or as soon as there is a connection.
     await enqueueText(userId, { client_id, conversation_id: convId, sender_id: userId, body, reply_to, created_at: optimistic.created_at });
+    void flushOutbox(userId);
+  }
+
+  async function togglePinned(m: Message) {
+    if (!convId) return;
+    const unpin = pinnedId === m.id;
+    const { error: err } = await supabase.rpc('set_pinned_message', { p_conversation: convId, p_message: unpin ? null : m.id });
+    if (err) setError("Couldn't change the pinned message. Check your connection and try again.");
+    else setPinnedId(unpin ? null : m.id);
+  }
+
+  async function sendGif(g: GifPick, existing?: Message) {
+    if (!convId) return;
+    const client_id = existing?.client_id ?? uuid();
+    const created_at = existing?.created_at ?? new Date().toISOString();
+    const body = g.kind === 'sticker' ? 'Sticker' : 'GIF';
+    const meta = { u: g.url, w: g.w, h: g.h };
+    const reply_to = existing ? existing.reply_to : replyTo?.id ?? null;
+    if (!existing) {
+      setReplyTo(null);
+      setEmojiOpen(false);
+    }
+    setError('');
+    upsert({
+      id: 'local-' + client_id,
+      conversation_id: convId,
+      sender_id: userId,
+      client_id,
+      kind: g.kind,
+      body,
+      meta,
+      media_id: null,
+      reply_to,
+      max_views: null,
+      views_used: 0,
+      created_at,
+      delivered_at: null,
+      read_at: null,
+      deleted_at: null,
+      pending: true,
+    });
+    scrollToBottom();
+    await enqueueText(userId, { client_id, conversation_id: convId, sender_id: userId, body, reply_to, created_at, kind: g.kind, meta });
     void flushOutbox(userId);
   }
 
@@ -818,6 +900,7 @@ export default function ChatScreen({ userId, conversationId, initialAction }: { 
   }, [messages, call.history, convId]);
   const timelineRef = useRef<Message[]>([]);
   timelineRef.current = timeline;
+  const pinnedMsg = pinnedId ? (messages.find((m) => m.id === pinnedId) ?? (pinnedExtra?.id === pinnedId ? pinnedExtra : null)) : null;
 
   if (loading) {
     return (
@@ -884,6 +967,21 @@ export default function ChatScreen({ userId, conversationId, initialAction }: { 
         <View style={{ minHeight: 36, paddingHorizontal: space[3], paddingVertical: space[2], alignItems: 'center', justifyContent: 'center', backgroundColor: c.warningSurface }}>
           <Text style={{ color: c.warningText, fontSize: fontSize.meta, fontFamily: font.regular }}>{error}</Text>
         </View>
+      )}
+
+      {!!pinnedMsg && !pinnedMsg.deleted_at && (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={'Pinned message: ' + snippet(pinnedMsg) + '. Tap to open'}
+          onPress={() => void jumpTo(pinnedMsg)}
+          style={{ minHeight: 44, paddingLeft: space[4], paddingRight: 60, paddingVertical: space[2], flexDirection: 'row', alignItems: 'center', gap: space[2], backgroundColor: c.surface, borderBottomWidth: 1, borderBottomColor: c.divider }}
+        >
+          <Text style={{ fontSize: 14 }}>📌</Text>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={{ color: c.primary, fontSize: 10, fontFamily: font.semibold, letterSpacing: 0.4, textTransform: 'uppercase' }}>Pinned message</Text>
+            <Text numberOfLines={1} style={{ color: c.text, fontSize: fontSize.label, fontFamily: font.regular }}>{snippet(pinnedMsg)}</Text>
+          </View>
+        </Pressable>
       )}
 
       {!!convId && <WeeChatButton conversationId={convId} top={72 + insets.top + space[2]} />}
@@ -973,7 +1071,7 @@ export default function ChatScreen({ userId, conversationId, initialAction }: { 
                   mine={mine}
                   firstOfGroup={firstOfGroup || showUnread}
                   wide={wide}
-                  onRetry={() => (item.local ? sendPicked(item.local.picked, item) : send(item))}
+                  onRetry={() => (item.local ? sendPicked(item.local.picked, item) : (item.kind === 'gif' || item.kind === 'sticker') && item.meta ? sendGif({ kind: item.kind as 'gif' | 'sticker', url: item.meta.u, w: item.meta.w, h: item.meta.h }, item) : send(item))}
                   onOpen={() => openMedia(item)}
                   onLink={openLink}
                   onLongPress={() => {
@@ -1111,7 +1209,7 @@ export default function ChatScreen({ userId, conversationId, initialAction }: { 
         <ChatSearch convId={convId} userId={userId} partnerName={partnerName} onClose={() => setSearchOpen(false)} onJump={jumpTo} />
       )}
 
-      {emojiOpen && <EmojiPanel onPick={insertEmoji} />}
+      {emojiOpen && <MediaPanel onEmoji={insertEmoji} onGif={(g) => void sendGif(g)} />}
 
       <MessageMenu
         message={menuMsg}
@@ -1143,12 +1241,18 @@ export default function ChatScreen({ userId, conversationId, initialAction }: { 
         onEdit={() => {
           const m = menuMsg;
           setMenuMsg(null);
-          if (m) startEdit(m);
+          if (m && m.kind !== 'gif' && m.kind !== 'sticker') startEdit(m);
         }}
         onDelete={() => {
           const m = menuMsg;
           setMenuMsg(null);
           if (m) deleteMsg(m);
+        }}
+        pinned={!!menuMsg && menuMsg.id === pinnedId}
+        onPin={() => {
+          const m = menuMsg;
+          setMenuMsg(null);
+          if (m) void togglePinned(m);
         }}
       />
       <AttachmentSheet visible={sheet} onClose={() => setSheet(false)} onPick={attach} />

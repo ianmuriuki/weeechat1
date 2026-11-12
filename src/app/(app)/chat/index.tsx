@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Pressable, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import { Alert, Pressable, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ChatScreen from '../../../screens/ChatScreen';
@@ -11,6 +11,7 @@ import { Icon } from '../../../lib/icons';
 import type { ConversationSummary } from '../../../lib/chat';
 import { useInbox } from '../../../lib/inbox';
 import { useSession } from '../../../lib/session';
+import { supabase } from '../../../lib/supabase';
 import { useTheme } from '../../../hooks/useTheme';
 import { space, fontSize, radius } from '../../../theme/tokens';
 import { font } from '../../../theme/type';
@@ -35,7 +36,15 @@ function ChatList({ userId }: { userId: string }) {
     if (last.kind === 'image') return 'Photo';
     if (last.kind === 'file') return 'File';
     if (last.kind === 'voice') return 'Voice message';
+    if (last.kind === 'gif') return 'GIF';
+    if (last.kind === 'sticker') return 'Sticker';
     return last.body ?? '';
+  }
+
+  async function togglePin(id: string, pinned: boolean) {
+    const { error: err } = await supabase.rpc('set_chat_pin', { p_conversation: id, p_pinned: pinned });
+    if (err) Alert.alert(pinned ? "Couldn't pin" : "Couldn't unpin", /3 chats/.test(err.message) ? 'You can pin up to 3 chats. Unpin one first.' : 'Check your connection and try again.');
+    else load();
   }
 
   const visibleConversations = useMemo(() => {
@@ -138,12 +147,16 @@ function ChatList({ userId }: { userId: string }) {
                 accessibilityRole="button"
                 accessibilityLabel={'Open chat with ' + name}
                 onPress={() => router.push(('/chat/room?conversationId=' + conversation.id) as never)}
+                onLongPress={() => Alert.alert(name, undefined, [{ text: conversation.pinned_at ? 'Unpin chat' : 'Pin chat', onPress: () => void togglePin(conversation.id, !conversation.pinned_at) }, { text: 'Cancel', style: 'cancel' }])}
                 style={({ pressed }) => ({ minHeight: 76, paddingVertical: 10, paddingHorizontal: space[5], flexDirection: 'row', alignItems: 'center', gap: space[3], backgroundColor: pressed ? c.hover : 'transparent' })}
               >
                 <Avatar name={name} color={c.avatarIann} path={conversation.kind === 'direct' ? conversation.other?.avatar_path : conversation.avatar_path} />
                 <View style={{ flex: 1, minWidth: 0, gap: 6 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space[2] }}>
-                    <Text numberOfLines={1} style={{ flexShrink: 1, color: c.text, fontSize: 15, fontFamily: font.semibold }}>{name}</Text>
+                    <View style={{ flexShrink: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Text numberOfLines={1} style={{ flexShrink: 1, color: c.text, fontSize: 15, fontFamily: font.semibold }}>{name}</Text>
+                      {!!conversation.pinned_at && <Text accessibilityLabel="Pinned" style={{ fontSize: 12 }}>📌</Text>}
+                    </View>
                     {conversation.last && <Text style={{ color: conversation.unread > 0 ? c.primary : c.textSecondary, fontSize: fontSize.meta, fontFamily: font.regular }}>{shortWhen(conversation.last.created_at)}</Text>}
                   </View>
                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space[2] }}>

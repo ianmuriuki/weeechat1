@@ -8,6 +8,7 @@ import { VoiceContent } from './VoiceContent';
 import { Ticks, type TickState } from './Ticks';
 import type { Message } from '../lib/chat';
 import { splitLinks } from '../lib/links';
+import { parseGif } from '../lib/giphy';
 import { useSignedUrl, type MediaRow } from '../lib/media';
 import { radius, fontSize, lineHeight } from '../theme/tokens';
 import { font } from '../theme/type';
@@ -145,6 +146,43 @@ function FileContent({ message, media, onOpen, onLongPress }: { message: Message
   );
 }
 
+function GifContent({ gif, sticker, pending, onLongPress }: { gif: { url: string; w: number; h: number }; sticker: boolean; pending: boolean; onLongPress?: () => void }) {
+  const { c } = useTheme();
+  const { width } = useWindowDimensions();
+  const [bad, setBad] = useState(false);
+  const [tries, setTries] = useState(0);
+  const boxW = sticker ? 170 : Math.min(260, width * 0.85 - 20);
+  const ratio = gif.w && gif.h ? gif.h / gif.w : 1;
+  const boxH = Math.max(80, Math.min(sticker ? 170 : 320, Math.round(boxW * ratio)));
+  return (
+    <Pressable
+      accessibilityRole="imagebutton"
+      accessibilityLabel={bad ? (sticker ? "Sticker didn't load. Tap to try again" : "GIF didn't load. Tap to try again") : sticker ? 'Sticker' : 'GIF'}
+      onPress={bad ? () => { setBad(false); setTries((t) => t + 1); } : undefined}
+      onLongPress={onLongPress}
+      style={{
+        width: boxW,
+        height: boxH,
+        marginHorizontal: sticker ? 0 : -5,
+        marginTop: sticker ? 0 : -3,
+        marginBottom: sticker ? 0 : 4,
+        borderRadius: sticker ? 0 : 9,
+        overflow: 'hidden',
+        backgroundColor: sticker ? 'transparent' : c.surfaceSubtle,
+        alignItems: 'center',
+        justifyContent: 'center',
+        opacity: pending ? 0.6 : 1,
+      }}
+    >
+      {bad ? (
+        <Text style={{ color: c.textSecondary, fontSize: fontSize.meta, fontFamily: font.regular, textAlign: 'center', padding: 12 }}>Couldn't load this. Tap to try again.</Text>
+      ) : (
+        <Image key={tries} source={{ uri: gif.url }} style={{ width: '100%', height: '100%' }} contentFit={sticker ? 'contain' : 'cover'} onError={() => setBad(true)} />
+      )}
+    </Pressable>
+  );
+}
+
 export function MessageBubble({
   message,
   media,
@@ -182,7 +220,9 @@ export function MessageBubble({
   // Invisible spaces reserve room so the time and ticks never cover the last line of text.
   const edited = !!message.edited_at && !deleted;
   const spacer = '\u00A0'.repeat((mine ? 17 : 11) + (edited ? 9 : 0));
-  const parts = deleted || !message.body ? null : splitLinks(message.body);
+  const gif = deleted ? null : parseGif(message);
+  const sticker = !!gif && message.kind === 'sticker';
+  const parts = deleted || !message.body || gif ? null : splitLinks(message.body);
   const limited = message.kind === 'image' && !!message.max_views;
 
   return (
@@ -195,16 +235,16 @@ export function MessageBubble({
         {
           alignSelf: mine ? 'flex-end' : 'flex-start',
           maxWidth: wide ? 600 : '85%',
-          backgroundColor: mine ? c.bubbleOutgoing : c.bubbleIncoming,
+          backgroundColor: sticker ? 'transparent' : mine ? c.bubbleOutgoing : c.bubbleIncoming,
           borderRadius: radius.bubble,
-          paddingTop: 7,
-          paddingBottom: 7,
-          paddingHorizontal: 9,
+          paddingTop: sticker ? 0 : 7,
+          paddingBottom: sticker ? 0 : 7,
+          paddingHorizontal: sticker ? 0 : 9,
           marginTop: bare ? 0 : firstOfGroup ? 8 : 2,
           marginBottom: !bare && reactions ? 14 : 0,
         },
-        hairline,
-        tail,
+        sticker ? null : hairline,
+        sticker ? null : tail,
       ]}
     >
       {!deleted && quote && (
@@ -227,11 +267,12 @@ export function MessageBubble({
       ) : (
         <ImageContent message={message} media={media} onOpen={onOpen} onLongPress={onLongPress} />
       ))}
+      {gif && <GifContent gif={gif} sticker={sticker} pending={!!message.pending} onLongPress={onLongPress} />}
       {!deleted && message.kind === 'file' && <FileContent message={message} media={media} onOpen={onOpen} onLongPress={onLongPress} />}
       {!deleted && message.kind === 'voice' && <VoiceContent message={message} media={media} mine={mine} senderName={senderName} senderAvatar={senderAvatar} onLongPress={onLongPress} />}
       <Text
         style={{
-          display: message.kind === 'voice' && !deleted ? 'none' : 'flex',
+          display: (message.kind === 'voice' && !deleted) || sticker ? 'none' : 'flex',
           color: deleted ? c.textSecondary : c.text,
           fontFamily: font.regular,
           fontStyle: deleted ? 'italic' : 'normal',
@@ -257,11 +298,11 @@ export function MessageBubble({
                   <Fragment key={i}>{p.text}</Fragment>
                 ),
               )
-            : (message.body ?? '')}
+            : gif ? '' : (message.body ?? '')}
         {spacer}
       </Text>
-      <View style={{ position: 'absolute', right: 9, bottom: 4, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-        <Text style={{ color: c.textSecondary, fontFamily: font.regular, fontSize: 10, fontVariant: ['tabular-nums'] }}>
+      <View style={[{ position: 'absolute', right: sticker ? 4 : 9, bottom: 4, flexDirection: 'row', alignItems: 'center', gap: 4 }, sticker ? { backgroundColor: 'rgba(0,0,0,0.4)', borderRadius: 9, paddingHorizontal: 6, paddingVertical: 2 } : null]}>
+        <Text style={{ color: sticker ? '#ffffff' : c.textSecondary, fontFamily: font.regular, fontSize: 10, fontVariant: ['tabular-nums'] }}>
           {(edited ? 'Edited ' : '') + timeLabel(message.created_at)}
         </Text>
         {mine && <Ticks state={tickState(message)} onRetry={onRetry} />}

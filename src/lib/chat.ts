@@ -3,7 +3,7 @@ import type { Picked } from './media';
 import { getConversationClearedAt } from './conversationActions';
 
 export const MESSAGE_COLS =
-  'id, conversation_id, sender_id, client_id, kind, body, media_id, reply_to, max_views, views_used, created_at, delivered_at, read_at, deleted_at, edited_at';
+  'id, conversation_id, sender_id, client_id, kind, body, media_id, reply_to, max_views, views_used, created_at, delivered_at, read_at, deleted_at, edited_at, meta';
 
 export type Message = {
   id: string;
@@ -21,6 +21,7 @@ export type Message = {
   read_at: string | null;
   deleted_at: string | null;
   edited_at?: string | null;
+  meta?: { u: string; w: number; h: number } | null;
   pending?: boolean;
   failed?: boolean;
   local?: { picked: Picked; mediaId: string };
@@ -68,15 +69,17 @@ export type ConversationSummary = {
   other: Profile | null;
   last: Message | null;
   unread: number;
+  pinned_at?: string | null;
 };
 
 export async function fetchConversationSummaries(userId: string): Promise<ConversationSummary[]> {
   const { data: memberships, error: membershipError } = await supabase
     .from('conversation_members')
-    .select('conversation_id')
+    .select('conversation_id, pinned_at')
     .eq('user_id', userId);
   if (membershipError) throw membershipError;
   const ids = (memberships ?? []).map((row) => row.conversation_id);
+  const pinnedAt = new Map((memberships ?? []).map((row: { conversation_id: string; pinned_at: string | null }) => [row.conversation_id, row.pinned_at] as const));
   if (!ids.length) return [];
 
   const [{ data: conversations, error: conversationError }, { data: members, error: memberError }, { data: messages, error: messageError }] = await Promise.all([
@@ -134,8 +137,13 @@ export async function fetchConversationSummaries(userId: string): Promise<Conver
       other: profileById.get(memberByConversation.get(conversation.id) ?? '') ?? null,
       last: latestByConversation.get(conversation.id) ?? null,
       unread: unreadByConversation.get(conversation.id) ?? 0,
+      pinned_at: pinnedAt.get(conversation.id) ?? null,
     }))
-    .sort((a, b) => (b.last?.created_at ?? createdAt.get(b.id) ?? '').localeCompare(a.last?.created_at ?? createdAt.get(a.id) ?? ''));
+    .sort((a, b) => {
+      if (!!a.pinned_at !== !!b.pinned_at) return a.pinned_at ? -1 : 1;
+      if (a.pinned_at && b.pinned_at) return b.pinned_at.localeCompare(a.pinned_at);
+      return (b.last?.created_at ?? createdAt.get(b.id) ?? '').localeCompare(a.last?.created_at ?? createdAt.get(a.id) ?? '');
+    });
 }
 
 export async function markRead(conversationId: string) {

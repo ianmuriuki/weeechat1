@@ -14,7 +14,7 @@ const EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 const lift: any = Platform.OS === 'web' ? { boxShadow: '0 8px 24px rgba(17,27,33,0.18)' } : { elevation: 6 };
 
 export function MessageMenu({
-  message, media, mine, myEmoji, partnerName, onClose, onReact, onReply, onCopy, onCopyLink, onEdit, onDelete,
+  message, media, mine, myEmoji, partnerName, onClose, onReact, onReply, onCopy, onCopyLink, onEdit, onDelete, onPin, pinned,
 }: {
   message: Message | null;
   media?: MediaRow;
@@ -28,6 +28,8 @@ export function MessageMenu({
   onCopyLink: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  onPin?: () => void;
+  pinned?: boolean;
 }) {
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
@@ -40,9 +42,10 @@ export function MessageMenu({
   const colW = Math.min(width - 32, 360);
   const side = mine ? 'flex-end' : 'flex-start';
 
-  const items: { key: string; label: string; icon: IconName; danger?: boolean; run: () => void }[] = [];
+  const items: { key: string; label: string; icon?: IconName; glyph?: string; danger?: boolean; run: () => void }[] = [];
   if (sendable) items.push({ key: 'reply', label: 'Reply', icon: 'reply', run: onReply });
-  if (message.body) items.push({ key: 'copy', label: 'Copy', icon: 'copy', run: onCopy });
+  if (sendable && onPin) items.push({ key: 'pin', label: pinned ? 'Unpin' : 'Pin', glyph: '📌', run: onPin });
+  if (message.body && message.kind !== 'gif' && message.kind !== 'sticker') items.push({ key: 'copy', label: 'Copy', icon: 'copy', run: onCopy });
   if (message.body && firstLink(message.body)) items.push({ key: 'copylink', label: 'Copy link', icon: 'link', run: onCopyLink });
   if (mine && sendable && ['text', 'image', 'file'].includes(message.kind)) items.push({ key: 'edit', label: 'Edit', icon: 'edit', run: onEdit });
   if (mine && sendable) items.push({ key: 'delete', label: 'Delete', icon: 'trash', danger: true, run: () => setConfirm(true) });
@@ -94,7 +97,7 @@ export function MessageMenu({
                     onPress={it.run}
                     style={({ pressed }) => ({ height: 52, paddingHorizontal: space[4], flexDirection: 'row', alignItems: 'center', gap: 14, borderTopWidth: i ? 1 : 0, borderTopColor: c.divider, backgroundColor: pressed ? c.hover : 'transparent' })}
                   >
-                    <Icon name={it.icon} color={it.danger ? c.danger : c.textSecondary} />
+                    {it.icon ? <Icon name={it.icon} color={it.danger ? c.danger : c.textSecondary} /> : <Text style={{ width: 24, fontSize: 18, textAlign: 'center' }}>{it.glyph}</Text>}
                     <Text style={{ color: it.danger ? c.danger : c.text, fontSize: fontSize.body, fontFamily: font.regular }}>{it.label}</Text>
                   </Pressable>
                 ))}

@@ -10,6 +10,8 @@ export type QueuedText = {
   body: string;
   reply_to: string | null;
   created_at: string;
+  kind?: 'text' | 'gif' | 'sticker';
+  meta?: { u: string; w: number; h: number } | null;
 };
 
 export type OutboxEvent =
@@ -68,8 +70,9 @@ export function queuedToMessage(q: QueuedText): Message {
     conversation_id: q.conversation_id,
     sender_id: q.sender_id,
     client_id: q.client_id,
-    kind: 'text',
+    kind: q.kind ?? 'text',
     body: q.body,
+    meta: q.meta ?? null,
     media_id: null,
     reply_to: q.reply_to,
     max_views: null,
@@ -92,7 +95,7 @@ async function run(uid: string): Promise<number> {
       res = await supabase
         .from('messages')
         .upsert(
-          { conversation_id: q.conversation_id, sender_id: uid, client_id: q.client_id, kind: 'text', body: q.body, reply_to: q.reply_to },
+          { conversation_id: q.conversation_id, sender_id: uid, client_id: q.client_id, kind: q.kind ?? 'text', body: q.body, reply_to: q.reply_to, ...(q.meta ? { meta: q.meta } : {}) },
           { onConflict: 'sender_id,client_id', ignoreDuplicates: true },
         )
         .select(MESSAGE_COLS);
